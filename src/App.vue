@@ -26,11 +26,20 @@
             <el-icon><Document /></el-icon>
             <span>Dockerfile 分析器</span>
           </el-menu-item>
+          <el-menu-item index="/billing">
+            <el-icon><Document /></el-icon>
+            <span>账单分析</span>
+          </el-menu-item>
+          <el-menu-item index="/logs">
+            <el-icon><Document /></el-icon>
+            <span>日志翻译</span>
+          </el-menu-item>
           <el-menu-item index="/history">
             <el-icon><Clock /></el-icon>
             <span>历史记录</span>
           </el-menu-item>
           
+
         </el-menu>
         
         <div class="header-actions">
@@ -56,7 +65,7 @@
     <!-- 底部 -->
     <el-footer class="app-footer">
       <div class="footer-content">
-        <p>&copy; 2024 AI DevOps 助手 - 让 DevOps 更高效</p>
+        <p>&copy; 2025 AI DevOps 助手 - 让 DevOps 更高效</p>
         <div class="footer-links">
           <el-link href="https://github.com" target="_blank" type="primary">GitHub</el-link>
           <el-link href="#" type="primary">文档</el-link>

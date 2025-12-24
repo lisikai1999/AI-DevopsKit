@@ -353,6 +353,105 @@ CMD ["node", "dist/index.js"]`
   }
 
   /**
+   * 分析 AWS 账单 CSV
+   * @param {string} csvContent - CSV 原文
+   * @returns {Promise<AIResponse>} AI 响应，content 为 JSON 字符串：{ summary, topResources, suggestions, chartData }
+   */
+  async analyzeBillingCSV(csvContent) {
+    if (this.#isMockMode) {
+      return this.#mockBillingAnalysis(csvContent);
+    }
+
+    try {
+      const prompt = `请分析以下 AWS 账单 CSV（CSV 第一行为表头，包含资源/服务和费用等字段）：\n\n${csvContent}\n\n请返回 JSON 格式：{ "summary": {"totalCost": number, "period": "YYYY-MM"}, "topResources": [{"resource": "ec2", "cost": number, "percent": number}], "suggestions": ["..."], "chartData": {"categories": ["s1"], "values": [100]} }`;
+
+      const response = await this.#callAI(prompt);
+      try {
+        const parsed = JSON.parse(response.content);
+        return { success: true, content: JSON.stringify(parsed, null, 2) };
+      } catch {
+        return { success: true, content: JSON.stringify({ summary: { totalCost: 0, period: '' }, topResources: [], suggestions: [response.content], chartData: { categories: [], values: [] } }, null, 2) };
+      }
+    } catch (error) {
+      return { success: false, error: '分析账单失败', content: '' };
+    }
+  }
+
+  /**
+   * 翻译 & 解释技术日志（英文日志 -> 中文翻译 + 故障原因 + 修复建议）
+   * @param {string} logContent - 英文日志
+   * @returns {Promise<AIResponse>} AI 响应，content 为 JSON 字符串：{ translation, explanation, fixes }
+   */
+  async translateLog(logContent) {
+    if (this.#isMockMode) {
+      return this.#mockLogTranslation(logContent);
+    }
+
+    try {
+      const prompt = `以下是英文技术日志，请翻译成中文并解释可能原因及给出具体修复建议：\n\n${logContent}\n\n请以 JSON 格式返回：{ "translation": "...", "explanation": "...", "fixes": ["..."] }`;
+
+      const response = await this.#callAI(prompt);
+      try {
+        const parsed = JSON.parse(response.content);
+        return { success: true, content: JSON.stringify(parsed, null, 2) };
+      } catch {
+        return { success: true, content: JSON.stringify({ translation: response.content, explanation: '', fixes: [] }, null, 2) };
+      }
+    } catch (error) {
+      return { success: false, error: '日志翻译失败', content: '' };
+    }
+  }
+
+  /**
+   * 模拟账单分析（私有）
+   * @param {string} csvContent
+   * @returns {AIResponse}
+   */
+  #mockBillingAnalysis(csvContent) {
+    const mock = {
+      summary: {
+        totalCost: 1245.67,
+        period: '2025-11'
+      },
+      topResources: [
+        { resource: 'EC2', cost: 734.12, percent: 58.9 },
+        { resource: 'S3', cost: 256.5, percent: 20.6 },
+        { resource: 'RDS', cost: 150.75, percent: 12.1 }
+      ],
+      suggestions: [
+        '关闭未使用的 EC2 实例或使用 Spot/Reserved 实例节省成本',
+        '为 S3 设置生命周期规则清理不必要的归档',
+        '检查 RDS 的实例规格，考虑降配或使用 Aurora Serverless'
+      ],
+      chartData: {
+        categories: ['EC2', 'S3', 'RDS', '其他'],
+        values: [734.12, 256.5, 150.75, 104.3]
+      }
+    };
+
+    return { success: true, content: JSON.stringify(mock, null, 2) };
+  }
+
+  /**
+   * 模拟日志翻译（私有）
+   * @param {string} logContent
+   * @returns {AIResponse}
+   */
+  #mockLogTranslation(logContent) {
+    const mock = {
+      translation: '错误: 连接到数据库失败：超时\n详细: 数据库不可达。',
+      explanation: '看起来应用无法连接到数据库，可能原因包括网络中断、数据库凭据错误或数据库实例处于不可用状态。',
+      fixes: [
+        '检查数据库连接字符串和凭据',
+        '确认数据库实例运行并可达（安全组/防火墙规则）',
+        '查看数据库端日志以确认是否有资源或配额问题'
+      ]
+    };
+
+    return { success: true, content: JSON.stringify(mock, null, 2) };
+  }
+
+  /**
    * 检查AI服务是否已配置（非mock模式下是否有API密钥）
    * @returns {boolean} 配置状态
    */

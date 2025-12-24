@@ -24,6 +24,9 @@
 - 位置: `src/services/ai-service.js`。文件中包含两类核心调用：
   - Jenkinsfile 生成：生成 prompt（见文件内 prompt 模板），期望返回“只包含 Jenkinsfile 的文本”，组件直接显示/保存为历史记录。
   - Dockerfile 分析：向 AI 要求以 JSON 返回 { issues, suggestions, score, optimizedContent }。`ai-service` 会尝试 JSON.parse；若失败，会把原始响应作为 suggestion 包装回来。
+  - 新增：账单分析（`analyzeBillingCSV(csv)`）与日志翻译（`translateLog(log)`）：
+    - `analyzeBillingCSV`：期望返回 JSON { summary: { totalCost, period }, topResources: [{resource,cost,percent}], suggestions: [], chartData: { categories: [], values: [] } }，前端视图为 `src/views/BillingView.vue`。
+    - `translateLog`：期望返回 JSON { translation, explanation, fixes }，前端视图为 `src/views/LogView.vue`。
 - Mock 注意：当 `VITE_APP_MODE=mock` 时，`AIService` 返回固定模拟内容（便于迭代和测试）。
 - 如果要更改 prompt 或模型行为：修改 `ai-service.js` 的 prompt 文本并在本地实测（先用 mock 模式或使用真实 API key）。
 

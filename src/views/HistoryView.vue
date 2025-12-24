@@ -41,6 +41,8 @@
               <el-radio-button label="all">全部</el-radio-button>
               <el-radio-button label="jenkinsfile">Jenkinsfile</el-radio-button>
               <el-radio-button label="dockerfile">Dockerfile</el-radio-button>
+              <el-radio-button label="billing">账单分析</el-radio-button>
+              <el-radio-button label="log">日志翻译</el-radio-button>
             </el-radio-group>
             
             <el-input
@@ -62,8 +64,8 @@
             >
               <el-table-column prop="type" label="类型" width="100">
                 <template #default="{ row }">
-                  <el-tag :type="row.type === 'jenkinsfile' ? 'primary' : 'success'">
-                    {{ row.type === 'jenkinsfile' ? 'Jenkinsfile' : 'Dockerfile' }}
+                  <el-tag :type="row.type === 'jenkinsfile' ? 'primary' : row.type === 'dockerfile' ? 'success' : 'info'">
+                    {{ row.type === 'jenkinsfile' ? 'Jenkinsfile' : row.type === 'dockerfile' ? 'Dockerfile' : row.type === 'billing' ? '账单' : '日志' }}
                   </el-tag>
                 </template>
               </el-table-column>
@@ -151,7 +153,7 @@
           <h4>内容:</h4>
           <MonacoEditor
             v-model="selectedHistory.content"
-            :language="selectedHistory.type === 'jenkinsfile' ? 'groovy' : 'dockerfile'"
+            :language="selectedHistory.type === 'jenkinsfile' ? 'groovy' : selectedHistory.type === 'dockerfile' ? 'dockerfile' : selectedHistory.type === 'billing' ? 'json' : 'plaintext'"
             height="300px"
             :readonly="!isEditMode"
           />
