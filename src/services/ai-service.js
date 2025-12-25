@@ -392,11 +392,16 @@ CMD ["node", "dist/index.js"]`
       const prompt = `以下是英文技术日志，请翻译成中文并解释可能原因及给出具体修复建议：\n\n${logContent}\n\n请以 JSON 格式返回：{ "translation": "...", "explanation": "...", "fixes": ["..."] }`;
 
       const response = await this.#callAI(prompt);
+      
+      const jsonStr = response.content
+            .replace(/^```json\s*/, '') // 移除开头的 ```json（含换行/空格）
+            .replace(/\s*```$/, '');    // 移除结尾的 ```（含换行/空格）
+
       try {
-        const parsed = JSON.parse(response.content);
+        const parsed = JSON.parse(jsonStr);
         return { success: true, content: JSON.stringify(parsed, null, 2) };
       } catch {
-        return { success: true, content: JSON.stringify({ translation: response.content, explanation: '', fixes: [] }, null, 2) };
+        return { success: true, content: JSON.stringify({ translation: jsonStr['translation'], explanation: jsonStr['explanation'], fixes: jsonStr['fixes'] }, null, 2) };
       }
     } catch (error) {
       console.log(error)
