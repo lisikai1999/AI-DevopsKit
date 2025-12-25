@@ -27,11 +27,11 @@
             <span>Dockerfile 分析器</span>
           </el-menu-item>
           <el-menu-item index="/billing">
-            <el-icon><Document /></el-icon>
+            <el-icon><TrendCharts /></el-icon>
             <span>账单分析</span>
           </el-menu-item>
           <el-menu-item index="/logs">
-            <el-icon><Document /></el-icon>
+            <el-icon><Failed /></el-icon>
             <span>日志翻译</span>
           </el-menu-item>
           <el-menu-item index="/history">
@@ -78,7 +78,7 @@
 
 <script setup>
   import { computed } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon } from '@element-plus/icons-vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Failed, TrendCharts } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 

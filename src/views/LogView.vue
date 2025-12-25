@@ -3,7 +3,7 @@
     <el-container>
       <el-header class="page-header">
         <h1>
-          <el-icon><Document /></el-icon>
+          <el-icon><Failed /></el-icon>
           日志翻译与解释
         </h1>
         <p>粘贴英文技术日志（如 Jenkins 报错、AWS 告警），AI 翻译成中文并解释错误原因与修复建议</p>
@@ -68,61 +68,95 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Document, Search } from '@element-plus/icons-vue'
-import MonacoEditor from '@/components/MonacoEditor.vue'
-import { aiService } from '@/services/ai-service'
-import { useAppStore } from '@/stores/app'
+  import { ref } from 'vue'
+  import { ElMessage } from 'element-plus'
+  import { Failed, Search } from '@element-plus/icons-vue'
+  import MonacoEditor from '@/components/MonacoEditor.vue'
+  import { aiService } from '@/services/ai-service'
+  import { useAppStore } from '@/stores/app'
 
-const appStore = useAppStore()
+  const appStore = useAppStore()
 
-const logContent = ref('')
-const translating = ref(false)
-const result = ref(null)
+  const logContent = ref('')
+  const translating = ref(false)
+  const result = ref(null)
 
-const loadSample = () => {
-  logContent.value = `[ERROR] Failed to connect to DB: timeout while connecting to 10.0.0.5:5432\nCaused by: Connection timed out`}
+  const loadSample = () => {
+    logContent.value = `[ERROR] Failed to connect to DB: timeout while connecting to 10.0.0.5:5432\nCaused by: Connection timed out`}
 
-const clearContent = () => {
-  logContent.value = ''
-  result.value = null
-}
-
-const translate = async () => {
-  if (!logContent.value.trim()) {
-    ElMessage.warning('请输入日志内容')
-    return
+  const clearContent = () => {
+    logContent.value = ''
+    result.value = null
   }
 
-  translating.value = true
-  try {
-    const res = await aiService.translateLog(logContent.value)
-    if (!res.success) {
-      ElMessage.error(res.error || '翻译失败')
+  const translate = async () => {
+    if (!logContent.value.trim()) {
+      ElMessage.warning('请输入日志内容')
       return
     }
-    result.value = JSON.parse(res.content)
-    ElMessage.success('翻译完成')
-  } catch (err) {
-    ElMessage.error('处理出错')
-  } finally {
-    translating.value = false
-  }
-}
 
-const saveToHistory = () => {
-  if (!result.value) return
-  appStore.addToHistory({ type: 'log', title: '日志翻译', content: logContent.value, result: JSON.stringify(result.value) })
-  ElMessage.success('已保存到历史')
-}
+    translating.value = true
+    try {
+      const res = await aiService.translateLog(logContent.value)
+      if (!res.success) {
+        ElMessage.error(res.error || '翻译失败')
+        return
+      }
+      result.value = JSON.parse(res.content)
+      ElMessage.success('翻译完成')
+    } catch (err) {
+      ElMessage.error('处理出错')
+    } finally {
+      translating.value = false
+    }
+  }
+
+  const saveToHistory = () => {
+    if (!result.value) return
+    appStore.addToHistory({ type: 'log', title: '日志翻译', content: logContent.value, result: JSON.stringify(result.value) })
+    ElMessage.success('已保存到历史')
+  }
 </script>
 
 <style scoped>
-.translation-box {
-  white-space: pre-wrap;
-  background: #f6f8fa;
-  padding: 12px;
-  border-radius: 6px;
-}
+  .log-view {
+    padding: 20px;
+    min-height: 100vh;
+    background-color: #f5f7fa;
+  }
+
+  /* 桌面端优化 */
+  @media (min-width: 1200px) {
+    .log-view {
+        min-width: 1200px;
+    }
+  }
+
+  .page-header {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+
+  .page-header h1 {
+    margin: 0 0 8px 0;
+    color: #303133;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .page-header p {
+    margin: 0;
+    color: #606266;
+  }
+
+  .translation-box {
+    white-space: pre-wrap;
+    background: #f6f8fa;
+    padding: 12px;
+    border-radius: 6px;
+  }
 </style>

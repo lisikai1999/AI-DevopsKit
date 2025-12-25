@@ -274,16 +274,16 @@ const downloadOptimized = () => {
 
 <style scoped>
     .dockerfile-view {
-    padding: 20px;
-    min-height: 100vh;
-    background-color: #f5f7fa;
+      padding: 20px;
+      min-height: 100vh;
+      background-color: #f5f7fa;
     }
 
     /* 桌面端优化 */
     @media (min-width: 1200px) {
-    .dockerfile-view {
-        min-width: 1200px;
-    }
+      .dockerfile-view {
+          min-width: 1200px;
+      }
     }
 
     .page-header {

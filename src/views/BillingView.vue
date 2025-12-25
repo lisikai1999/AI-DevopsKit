@@ -3,7 +3,7 @@
     <el-container>
       <el-header class="page-header">
         <h1>
-          <el-icon><Clock /></el-icon>
+          <el-icon><TrendCharts /></el-icon>
           AWS 账单分析
         </h1>
         <p>上传 CSV 或粘贴账单内容，AI 自动分析哪些资源消耗最多并给出优化建议</p>
@@ -89,7 +89,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Clock, Search } from '@element-plus/icons-vue'
+import { TrendCharts, Search } from '@element-plus/icons-vue'
 import EChartsWrapper from '@/components/EChartsWrapper.vue'
 import { aiService } from '@/services/ai-service'
 import { useAppStore } from '@/stores/app'
@@ -166,10 +166,44 @@ const saveToHistory = () => {
 </script>
 
 <style scoped>
-.csv-textarea {
-  width: 100%;
-  min-height: 200px;
-  font-family: Monaco, Consolas, monospace;
-  padding: 8px;
-}
+  .billing-view {
+      padding: 20px;
+      min-height: 100vh;
+      background-color: #f5f7fa;
+    }
+
+    /* 桌面端优化 */
+    @media (min-width: 1200px) {
+      .billing-view {
+          min-width: 1200px;
+      }
+    }
+
+    .page-header {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .page-header h1 {
+      margin: 0 0 8px 0;
+      color: #303133;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .page-header p {
+      margin: 0;
+      color: #606266;
+    }
+
+  .csv-textarea {
+    width: 100%;
+    min-height: 200px;
+    font-family: Monaco, Consolas, monospace;
+    padding: 8px;
+  }
 </style>
