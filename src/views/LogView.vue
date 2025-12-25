@@ -102,9 +102,11 @@
         ElMessage.error(res.error || '翻译失败')
         return
       }
+      console.log('result ===>', result)
       result.value = JSON.parse(res.content)
       ElMessage.success('翻译完成')
     } catch (err) {
+      console.log(err)
       ElMessage.error('处理出错')
     } finally {
       translating.value = false

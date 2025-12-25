@@ -147,9 +147,10 @@ ${content}
     if (!this.#apiKey) {
       throw new Error('API key not configured');
     }
+    
 
     const response = await axios.post(
-      `${this.#baseUrl}/chat/completions`,
+      '/api/chat/v1/chat/completions',
       {
         model: this.#model,
         messages: [

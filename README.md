@@ -1,5 +1,7 @@
 # AI DevOps 助手 - Vue3 实现
 一个轻量、开源的 AI 辅助 DevOps 工具，专注于 Jenkinsfile 生成 + Dockerfile 分析，让 DevOps 工作更高效！
+项目默认使用科大讯飞 Lite模型, 注册就能免费无限量调用
+官网：https://www.xfyun.cn/
 
 ## 📸 项目截图（示例）
 ### Jenkinsfile 生成器
