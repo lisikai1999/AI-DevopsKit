@@ -398,6 +398,7 @@ CMD ["node", "dist/index.js"]`
         return { success: true, content: JSON.stringify({ translation: response.content, explanation: '', fixes: [] }, null, 2) };
       }
     } catch (error) {
+      console.log(error)
       return { success: false, error: '日志翻译失败', content: '' };
     }
   }
