@@ -5,11 +5,15 @@
 
 ## 📸 项目截图（示例）
 ### Jenkinsfile 生成器
-![Jenkinsfile 生成器](截图链接)
+![alt text](image.png)
+
 ### Dockerfile 分析器
-![Dockerfile 分析器](截图链接)
+![alt text](image-1.png)
+
 ### AWS 账单 AI 解释器：
 用户上传 AWS 账单 CSV（或导入 Mock 数据），AI 自动分析 “哪些资源消耗最多”“是否有闲置资源可优化”，并生成可视化图表。
+![alt text](image-2.png)
+
 ### 技术日志 AI 翻译 / 解释：
 用户粘贴英文技术日志（如 Jenkins 报错、AWS 告警），AI 翻译成中文并解释错误原因、给出解决方案。
 
