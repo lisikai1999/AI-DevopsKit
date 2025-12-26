@@ -154,17 +154,18 @@ ${content}
       {
         model: this.#model,
         messages: [
-          {
-            role: 'system',
-            content: '你是一个专业的 DevOps 工程师，精通 Jenkins 和 Docker 技术。请提供专业、实用的建议和代码。'
-          },
+          // {
+          //   role: 'system',
+          //   content: '你是一个专业的 DevOps 工程师，精通 Jenkins 和 Docker 技术。请提供专业、实用的建议和代码。'
+          // },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 2000,
-        temperature: 0.7
+        max_tokens: 4096,
+        temperature: 1,
+        top_k: 6
       },
       {
         headers: {
@@ -173,11 +174,14 @@ ${content}
         }
       }
     );
-
+    // 处理响应, 去掉```json ```,避免json解析错误
     if (response.data.choices && response.data.choices.length > 0) {
+      const jsonStr = response.data.choices[0].message.content
+            .replace(/^```json\s*/, '') // 移除开头的 ```json（含换行/空格）
+            .replace(/\s*```$/, '');    // 移除结尾的 ```（含换行/空格）
       return {
         success: true,
-        content: response.data.choices[0].message.content
+        content: jsonStr
       };
     }
 
@@ -364,11 +368,12 @@ CMD ["node", "dist/index.js"]`
     }
 
     try {
-      const prompt = `请分析以下 AWS 账单 CSV（CSV 第一行为表头，包含资源/服务和费用等字段）：\n\n${csvContent}\n\n请返回 JSON 格式：{ "summary": {"totalCost": number, "period": "YYYY-MM"}, "topResources": [{"resource": "ec2", "cost": number, "percent": number}], "suggestions": ["..."], "chartData": {"categories": ["s1"], "values": [100]} }`;
+      const prompt = `请分析以下 AWS 账单 CSV（CSV 第一行为表头，包含资源/服务和费用等字段）：\n\n${csvContent}\n\n请返回 JSON 格式，格式参考：{ "summary": {"totalCost": number, "period": "YYYY-MM"}, "topResources": [{"resource": "ec2", "cost": number, "percent": number}], "suggestions": ["..."], "chartData": {"categories": ["ec2"], "values": [100]} }`;
 
       const response = await this.#callAI(prompt);
       try {
         const parsed = JSON.parse(response.content);
+
         return { success: true, content: JSON.stringify(parsed, null, 2) };
       } catch {
         return { success: true, content: JSON.stringify({ summary: { totalCost: 0, period: '' }, topResources: [], suggestions: [response.content], chartData: { categories: [], values: [] } }, null, 2) };
@@ -393,15 +398,12 @@ CMD ["node", "dist/index.js"]`
 
       const response = await this.#callAI(prompt);
       
-      const jsonStr = response.content
-            .replace(/^```json\s*/, '') // 移除开头的 ```json（含换行/空格）
-            .replace(/\s*```$/, '');    // 移除结尾的 ```（含换行/空格）
 
       try {
-        const parsed = JSON.parse(jsonStr);
+        const parsed = JSON.parse(response.content);
         return { success: true, content: JSON.stringify(parsed, null, 2) };
       } catch {
-        return { success: true, content: JSON.stringify({ translation: jsonStr['translation'], explanation: jsonStr['explanation'], fixes: jsonStr['fixes'] }, null, 2) };
+        return { success: true, content: JSON.stringify({ translation: response.content, explanation: '', fixes: [''] }, null, 2) };
       }
     } catch (error) {
       console.log(error)

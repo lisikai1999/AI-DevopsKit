@@ -6,16 +6,30 @@
 import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import * as echarts from 'echarts'
 
-const props = withDefaults(defineProps(), {
-  width: '100%',
-  height: '400px',
-  theme: 'default'
+const props = defineProps({
+  width: {
+    type: String,
+    default: '100%'
+  },
+  height: {
+    type: String,
+    default: '400px'
+  },
+  theme: {
+    type: String,
+    default: 'default'
+  },
+  option: {
+    type: Object,
+    default: () => ({}) // 复杂类型用函数返回
+  }
 })
 
 const chartRef = ref()
 let chart = null
 
 const initChart = () => {
+  console.log('初始化 ECharts 图表', props.option);
   if (!chartRef.value) return
   
   nextTick(() => {
