@@ -1,4 +1,5 @@
 import axios from 'axios'
+import JSON5 from 'json5';
 /**
  * AI服务的响应结构
  * @typedef {Object} AIResponse
@@ -87,10 +88,10 @@ export class AIService {
       return this.#mockDockerfileAnalysis(content);
     }
 
-    
+    // ai输出优化后的Dockerfile内容基本不可控, 可能导致json解析失败。此处ai输出分为两步执行
 
     try {
-      const prompt = `请分析以下 Dockerfile 的安全性、性能和最佳实践：
+      const prompt = `请分析以下 Dockerfile 的安全性、性能：
 
 ${content}
 
@@ -98,46 +99,53 @@ ${content}
 1. 安全性问题（如特权用户、明文密码等）
 2. 性能优化建议（如镜像层数、缓存策略等）
 3. 最佳实践建议
-4. 优化后的 Dockerfile
 
-请以 JSON 格式返回结果，参考如下：
+请以 JSON 格式返回结果(只要返回JSON数据)，参考如下：
 {
   "issues": [{"line": 行号, "type": "error|warning|info", "message": "问题描述", "suggestion": "建议"}],
   "suggestions": ["建议1", "建议2"],
-  "score": 评分(0-100),
-  "optimizedContent": "优化后的Dockerfile内容"
+  "score": 评分(0-100)
 }`;
 
-
-      
+      // 第一步：获取分析报告
       const response = await this.#callAI(prompt);
-      let fixedContent = response.content
-        // 匹配 ", 替换成\"
-        .replace(/"/g, '\"')
-        
-        
+      const parsedResponse = JSON.parse(response.content); // 测试是否能被解析成json
+
+      // 第二步：基于分析报告，生成优化后的Dockerfile
+      const prompt2 = `
+对于以下Dockerfile
+${content}
+      基于以下分析报告，请提供一个优化后的 Dockerfile：
+${response.content}
+请只返回优化后的 Dockerfile 内容，不要包含其他解释。`;
+
+      const response2 = await this.#callAI(prompt2);
+
+      // 合并分析报告和优化后的Dockerfile
+      parsedResponse['optimizedContent'] = response2.content;
+         
       try {
-        const parsed = JSON5.parse(response.content);
+        
         return {
           success: true,
-          content: JSON.stringify(parsed, null, 2)
+          content: JSON.stringify(parsedResponse, null, 2)
         };
       } catch (error){
-        console.log(error)
         console.error('具体错误原因：', error.message);
-        console.log('Dockerfile analysis response parsing failed', response.content);
+        console.error('Dockerfile analysis response parsing failed', parsedResponse);
         // 如果解析失败，返回原始响应包装后的结果
         return {
           success: true,
           content: JSON.stringify({
             issues: [],
-            suggestions: [response.content],
+            suggestions: [parsedResponse],
             score: 80,
             optimizedContent: content
           }, null, 2)
         };
       }
     } catch (error) {
+      console.error('Dockerfile analysis failed', error.message);
       return {
         success: false,
         error: '分析 Dockerfile 失败',
