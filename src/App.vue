@@ -67,7 +67,7 @@
       <div class="footer-content">
         <p>&copy; 2025 AI DevOps 助手 - 让 DevOps 更高效</p>
         <div class="footer-links">
-          <el-link href="https://github.com" target="_blank" type="primary">GitHub</el-link>
+          <el-link href="https://github.com/lisikai1999/AI-DevopsKit" target="_blank" type="primary">GitHub</el-link>
           <el-link href="#" type="primary">文档</el-link>
           <el-link href="#" type="primary">反馈</el-link>
         </div>

@@ -130,146 +130,153 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Document, Search, CopyDocument, Download } from '@element-plus/icons-vue'
-import MonacoEditor from '@/components/MonacoEditor.vue'
-import EChartsWrapper from '@/components/EChartsWrapper.vue'
-import { DockerfileAnalyzer, sampleDockerfiles } from '@/utils/dockerfile-analyzer'
-import { useAppStore } from '@/stores/app'
+  import { ref, computed } from 'vue'
+  import { ElMessage } from 'element-plus'
+  import { useAppStore } from '@/stores/app'
+  import { aiService } from '@/services/ai-service'
+  import MonacoEditor from '@/components/MonacoEditor.vue'
+  import EChartsWrapper from '@/components/EChartsWrapper.vue'
+  import { Document, Search, CopyDocument, Download } from '@element-plus/icons-vue'
+  import { DockerfileAnalyzer, sampleDockerfiles } from '@/utils/dockerfile-analyzer'
 
-const appStore = useAppStore()
+  const appStore = useAppStore()
 
-const dockerfileContent = ref('')
-const analysisResult = ref(null)
-const analyzing = ref(false)
-const activeIssues = ref([])
+  const dockerfileContent = ref('')
+  const analysisResult = ref(null)
+  const analyzing = ref(false)
+  const activeIssues = ref([])
 
-const editorOptions = {
-  minimap: { enabled: false },
-  scrollBeyondLastLine: false,
-  fontSize: 14,
-  wordWrap: 'on'
-}
+  const editorOptions = {
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize: 14,
+    wordWrap: 'on'
+  }
 
-const chartOption = computed(() => {
-  if (!analysisResult.value?.issues.length) return null
-  
-  const issueTypes = analysisResult.value.issues.reduce((acc, issue) => {
-    acc[issue.type] = (acc[issue.type] || 0) + 1
-    return acc
-  }, {})
-  
-  return {
-    title: {
-      text: '问题类型分布',
-      left: 'center',
-      textStyle: {
-        fontSize: 16
-      }
-    },
-    tooltip: {
-      trigger: 'item',
-      formatter: '{b}: {c} ({d}%)'
-    },
-    legend: {
-      orient: 'vertical',
-      left: 'left'
-    },
-    series: [
-      {
-        name: '问题类型',
-        type: 'pie',
-        radius: '50%',
-        data: [
-          { value: issueTypes.error || 0, name: '错误', itemStyle: { color: '#f56c6c' } },
-          { value: issueTypes.warning || 0, name: '警告', itemStyle: { color: '#e6a23c' } },
-          { value: issueTypes.info || 0, name: '信息', itemStyle: { color: '#909399' } }
-        ],
-        emphasis: {
-          itemStyle: {
-            shadowBlur: 10,
-            shadowOffsetX: 0,
-            shadowColor: 'rgba(0, 0, 0, 0.5)'
+  const chartOption = computed(() => {
+    if (!analysisResult.value?.issues.length) return null
+    
+    const issueTypes = analysisResult.value.issues.reduce((acc, issue) => {
+      acc[issue.type] = (acc[issue.type] || 0) + 1
+      return acc
+    }, {})
+    
+    return {
+      title: {
+        text: '问题类型分布',
+        left: 'center',
+        textStyle: {
+          fontSize: 16
+        }
+      },
+      tooltip: {
+        trigger: 'item',
+        formatter: '{b}: {c} ({d}%)'
+      },
+      legend: {
+        orient: 'vertical',
+        left: 'left'
+      },
+      series: [
+        {
+          name: '问题类型',
+          type: 'pie',
+          radius: '50%',
+          data: [
+            { value: issueTypes.error || 0, name: '错误', itemStyle: { color: '#f56c6c' } },
+            { value: issueTypes.warning || 0, name: '警告', itemStyle: { color: '#e6a23c' } },
+            { value: issueTypes.info || 0, name: '信息', itemStyle: { color: '#909399' } }
+          ],
+          emphasis: {
+            itemStyle: {
+              shadowBlur: 10,
+              shadowOffsetX: 0,
+              shadowColor: 'rgba(0, 0, 0, 0.5)'
+            }
           }
         }
+      ]
+    }
+  })
+
+  const getScoreType = (score) => {
+    if (score >= 80) return 'success'
+    if (score >= 60) return 'warning'
+    return 'danger'
+  }
+
+  const loadSample = (type) => {
+    dockerfileContent.value = sampleDockerfiles[type]
+    ElMessage.success(`已加载 ${type} 示例`)
+  }
+
+  const clearContent = () => {
+    dockerfileContent.value = ''
+    analysisResult.value = null
+  }
+
+  const analyzeDockerfile = async () => {
+    if (!dockerfileContent.value.trim()) {
+      ElMessage.warning('请输入 Dockerfile 内容')
+      return
+    }
+    
+    analyzing.value = true
+    
+    try {
+      // 模拟分析过程
+      // await new Promise(resolve => setTimeout(resolve, 1500))
+      // const analyzer = new DockerfileAnalyzer(dockerfileContent.value)
+
+      const res = await aiService.analyzeDockerfile(dockerfileContent.value)
+      if (!res.success) {
+        ElMessage.error(res.error || '分析失败')
+        return
       }
-    ]
+
+      analysisResult.value = JSON.parse(res.content)
+      
+      // 保存到历史记录
+      appStore.addToHistory({
+        type: 'dockerfile',
+        title: `Dockerfile 分析 - 得分 ${analysisResult.value.score}`,
+        content: dockerfileContent.value,
+        result: JSON.stringify(analysisResult.value, null, 2)
+      })
+      
+      ElMessage.success(`分析完成! 得分: ${analysisResult.value.score}/100`)
+    } catch (error) {
+      ElMessage.error('分析失败，请重试')
+    } finally {
+      analyzing.value = false
+    }
   }
-})
 
-const getScoreType = (score) => {
-  if (score >= 80) return 'success'
-  if (score >= 60) return 'warning'
-  return 'danger'
-}
-
-const loadSample = (type) => {
-  dockerfileContent.value = sampleDockerfiles[type]
-  ElMessage.success(`已加载 ${type} 示例`)
-}
-
-const clearContent = () => {
-  dockerfileContent.value = ''
-  analysisResult.value = null
-}
-
-const analyzeDockerfile = async () => {
-  if (!dockerfileContent.value.trim()) {
-    ElMessage.warning('请输入 Dockerfile 内容')
-    return
-  }
-  
-  analyzing.value = true
-  
-  try {
-    // 模拟分析过程
-    await new Promise(resolve => setTimeout(resolve, 1500))
+  const copyOptimized = async () => {
+    if (!analysisResult.value?.optimizedContent) return
     
-    const analyzer = new DockerfileAnalyzer(dockerfileContent.value)
-    analysisResult.value = analyzer.analyze()
-    
-    // 保存到历史记录
-    appStore.addToHistory({
-      type: 'dockerfile',
-      title: `Dockerfile 分析 - 得分 ${analysisResult.value.score}`,
-      content: dockerfileContent.value,
-      result: JSON.stringify(analysisResult.value, null, 2)
-    })
-    
-    ElMessage.success(`分析完成! 得分: ${analysisResult.value.score}/100`)
-  } catch (error) {
-    ElMessage.error('分析失败，请重试')
-  } finally {
-    analyzing.value = false
+    try {
+      await navigator.clipboard.writeText(analysisResult.value.optimizedContent)
+      ElMessage.success('已复制到剪贴板')
+    } catch (error) {
+      ElMessage.error('复制失败')
+    }
   }
-}
 
-const copyOptimized = async () => {
-  if (!analysisResult.value?.optimizedContent) return
-  
-  try {
-    await navigator.clipboard.writeText(analysisResult.value.optimizedContent)
-    ElMessage.success('已复制到剪贴板')
-  } catch (error) {
-    ElMessage.error('复制失败')
+  const downloadOptimized = () => {
+    if (!analysisResult.value?.optimizedContent) return
+    
+    const blob = new Blob([analysisResult.value.optimizedContent], { type: 'text/plain' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'Dockerfile.optimized'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success('文件下载成功')
   }
-}
-
-const downloadOptimized = () => {
-  if (!analysisResult.value?.optimizedContent) return
-  
-  const blob = new Blob([analysisResult.value.optimizedContent], { type: 'text/plain' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = 'Dockerfile.optimized'
-  document.body.appendChild(a)
-  a.click()
-  document.body.removeChild(a)
-  URL.revokeObjectURL(url)
-  ElMessage.success('文件下载成功')
-}
 </script>
 
 <style scoped>

@@ -1,5 +1,4 @@
 import axios from 'axios'
-
 /**
  * AI服务的响应结构
  * @typedef {Object} AIResponse
@@ -88,6 +87,8 @@ export class AIService {
       return this.#mockDockerfileAnalysis(content);
     }
 
+    
+
     try {
       const prompt = `请分析以下 Dockerfile 的安全性、性能和最佳实践：
 
@@ -99,7 +100,7 @@ ${content}
 3. 最佳实践建议
 4. 优化后的 Dockerfile
 
-请以 JSON 格式返回结果，包含以下字段：
+请以 JSON 格式返回结果，参考如下：
 {
   "issues": [{"line": 行号, "type": "error|warning|info", "message": "问题描述", "suggestion": "建议"}],
   "suggestions": ["建议1", "建议2"],
@@ -107,16 +108,24 @@ ${content}
   "optimizedContent": "优化后的Dockerfile内容"
 }`;
 
-      const response = await this.#callAI(prompt);
+
       
-      // 尝试解析 JSON 响应
+      const response = await this.#callAI(prompt);
+      let fixedContent = response.content
+        // 匹配 ", 替换成\"
+        .replace(/"/g, '\"')
+        
+        
       try {
-        const parsed = JSON.parse(response.content);
+        const parsed = JSON5.parse(response.content);
         return {
           success: true,
           content: JSON.stringify(parsed, null, 2)
         };
-      } catch {
+      } catch (error){
+        console.log(error)
+        console.error('具体错误原因：', error.message);
+        console.log('Dockerfile analysis response parsing failed', response.content);
         // 如果解析失败，返回原始响应包装后的结果
         return {
           success: true,
