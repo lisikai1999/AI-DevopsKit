@@ -13,7 +13,7 @@
 
 ### AWS 账单 AI 解释器：
 用户上传 AWS 账单 CSV（或导入 Mock 数据），AI 自动分析 “哪些资源消耗最多”“是否有闲置资源可优化”，并生成可视化图表。
-![alt text](image-4.png)
+![alt text](image-3.png)
 
 
 ### 技术日志 AI 翻译 / 解释：
