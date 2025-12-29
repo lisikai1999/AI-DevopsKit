@@ -1,5 +1,4 @@
 import axios from 'axios'
-import JSON5 from 'json5';
 /**
  * AI服务的响应结构
  * @typedef {Object} AIResponse

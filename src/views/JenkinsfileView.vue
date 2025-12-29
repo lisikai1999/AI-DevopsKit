@@ -133,6 +133,7 @@
 <script setup>
   import { ref, computed, onMounted, watch } from 'vue'
   import { ElMessage } from 'element-plus'
+  import { aiService } from '@/services/ai-service'
   import { Tools, Mic, CopyDocument, Download } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import { useAppStore } from '@/stores/app'
@@ -257,21 +258,19 @@
     }
     
     generating.value = true
-    
+
     try {
-      // 模拟生成过程
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // 替换模板变量
-      let content = selectedTemplate.value.template
-      Object.keys(formData.value).forEach(key => {
-        const value = formData.value[key]
-        const regex = new RegExp(`{{${key}}}`, 'g')
-        content = content.replace(regex, value?.toString() || '')
-      })
-      
+      const res = await aiService.generateJenkinsfile(selectedTemplate.value.template, formData.value)
+      if (!res.success) {
+        ElMessage.error(res.error || '生成失败')
+        return
+      }
+
+      // 清理可能的代码块包裹（```groovy / ```）
+      let content = res.content.replace(/^```(?:groovy|jenkinsfile)?\s*/, '').replace(/\s*```$/, '').trim()
+
       generatedContent.value = content
-      
+
       // 保存到历史记录
       appStore.addToHistory({
         type: 'jenkinsfile',
@@ -279,9 +278,10 @@
         content,
         result: content
       })
-      
+
       ElMessage.success('Jenkinsfile 生成成功!')
     } catch (error) {
+      console.error('生成 Jenkinsfile 出错:', error)
       ElMessage.error('生成失败，请重试')
     } finally {
       generating.value = false

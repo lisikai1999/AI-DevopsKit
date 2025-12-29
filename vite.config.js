@@ -20,7 +20,7 @@ export default defineConfig({
     // 配置开发代理
     proxy: {
       '/api/chat': {
-        target: 'https://spark-api-open.xf-yun.com/',
+        target: 'https://spark-api-open.xf-yun.com/',  // 讯飞开放平台API地址
         changeOrigin: true, // 开启跨域
         rewrite: (path) => path.replace(/^\/api\/chat/, ''), // 重写路径
         headers: {
