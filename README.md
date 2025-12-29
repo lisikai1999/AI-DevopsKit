@@ -58,8 +58,8 @@ npm install
     - `ai`：使用真实 AI 服务（必须配置下面的 API 变量）。
   - `VITE_OPENAI_API_KEY`：你在提供商处申请到的 API Key（仅在 `ai` 模式需要）。
   - `VITE_OPENAI_MODEL`：使用的模型，例如 `gpt-3.5-turbo`（默认 fallback）或自定义模型（仅在 `ai` 模式需要）。
-  - api域名配置，设置 Vite 开发代理ai api后端（仅在 `ai` 模式需要）
-    为了在开发环境下把浏览器的请求转发到 AI 提供商（避免 CORS 或隐藏 API Key），请在 `vite.config.js` 中配置 `proxy` =>`/api/chat`=>`target` 指向一个支持 OpenAI 风格路径的 API 主机。
+  - api域名配置，设置 Vite 开发代理ai api后端
+    为了在开发环境下把浏览器的请求转发到 AI 提供商（避免 CORS 或隐藏 API Key），请在 `vite.config.js` 中配置 `proxy` =>`/api/chat`=>`target` 指向一个支持 OpenAI 风格路径的 API 主机。（仅在 `ai` 模式需要）
 
     示例（对接 OpenAI）：
     ```js
