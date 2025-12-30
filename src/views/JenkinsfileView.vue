@@ -260,7 +260,7 @@
     generating.value = true
 
     try {
-      const res = await aiService.generateJenkinsfile(selectedTemplate.value.template, formData.value)
+      const res = await aiService.generateJenkinsfile(selectedTemplate.value.template, formData.value, selectedTemplate.value.id)
       if (!res.success) {
         ElMessage.error(res.error || '生成失败')
         return

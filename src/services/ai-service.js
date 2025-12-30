@@ -47,9 +47,9 @@ export class AIService {
    * @param {Record<string, any>} parameters - 生成参数
    * @returns {Promise<AIResponse>} AI响应结果
    */
-  async generateJenkinsfile(template, parameters) {
+  async generateJenkinsfile(template, parameters, templateId=sample) {
     if (this.#isMockMode) {
-      return this.#mockJenkinsfileResponse(template, parameters);
+      return this.#mockJenkinsfileResponse(templateId, parameters);
     }
 
     try {
@@ -210,7 +210,7 @@ ${response.content}
    * @param {Record<string, any>} parameters - 生成参数
    * @returns {AIResponse} 模拟响应结果
    */
-  #mockJenkinsfileResponse(template, parameters) {
+  #mockJenkinsfileResponse(templateId, parameters) {
     // 模拟不同类型的响应
     const responses = {
       'basic': `pipeline {
@@ -298,7 +298,7 @@ ${response.content}
     };
 
     // 若模板不存在，默认使用basic模板
-    const content = responses[template] || responses.basic;
+    const content = responses[templateId] || responses.basic;
     
     return {
       success: true,
