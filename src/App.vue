@@ -50,6 +50,7 @@
             type="text"
             @click="toggleDarkMode"
             circle
+            :title="isDarkMode ? '切换到亮色模式' : '切换到暗色模式'"
           >
             <el-icon><Moon /></el-icon>
           </el-button>
@@ -77,7 +78,7 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue'
+  import { computed, watch, onMounted } from 'vue'
   import { Cpu, House, Tools, Document, Clock, Moon, Failed, TrendCharts } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
@@ -85,11 +86,40 @@
   const appStore = useAppStore()
 
   const aiMode = computed(() => aiService.getMode())
+  const isDarkMode = computed(() => appStore.isDarkMode)
 
   const toggleDarkMode = () => {
     appStore.toggleDarkMode()
-    // 这里可以添加实际的暗色模式切换逻辑
   }
+
+  const applyDarkMode = (isDark) => {
+    if (isDark) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }
+
+  watch(isDarkMode, (newValue) => {
+    applyDarkMode(newValue)
+    localStorage.setItem('ai-devops-dark-mode', newValue)
+  })
+
+  onMounted(() => {
+    const savedDarkMode = localStorage.getItem('ai-devops-dark-mode')
+    if (savedDarkMode !== null) {
+      const isDark = savedDarkMode === 'true'
+      if (isDark !== appStore.isDarkMode) {
+        appStore.toggleDarkMode()
+      }
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      if (prefersDark) {
+        appStore.toggleDarkMode()
+      }
+    }
+    applyDarkMode(appStore.isDarkMode)
+  })
 </script>
 
 <style scoped>

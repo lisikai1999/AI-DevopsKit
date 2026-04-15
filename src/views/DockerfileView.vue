@@ -137,7 +137,7 @@
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import EChartsWrapper from '@/components/EChartsWrapper.vue'
   import { Document, Search, CopyDocument, Download } from '@element-plus/icons-vue'
-  import { DockerfileAnalyzer, sampleDockerfiles } from '@/utils/dockerfile-analyzer'
+  import { sampleDockerfiles } from '@/utils/dockerfile-analyzer'
 
   const appStore = useAppStore()
 
@@ -224,10 +224,6 @@
     analyzing.value = true
     
     try {
-      // 模拟分析过程
-      // await new Promise(resolve => setTimeout(resolve, 1500))
-      // const analyzer = new DockerfileAnalyzer(dockerfileContent.value)
-
       const res = await aiService.analyzeDockerfile(dockerfileContent.value)
       if (!res.success) {
         ElMessage.error(res.error || '分析失败')
