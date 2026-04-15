@@ -412,4 +412,27 @@ onMounted(() => {
       padding: 30px 15px;
     }
   }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .home-view {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    }
+
+    & .features-section {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .feature-card h3 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .feature-card p {
+      color: var(--el-text-color-regular);
+    }
+
+    & .quickstart-card h3 {
+      color: var(--el-text-color-primary);
+    }
+  }
 </style>

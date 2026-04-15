@@ -420,4 +420,52 @@
         margin-top: 15px;
     }
     }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .dockerfile-view {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .page-header {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    }
+
+    & .page-header h1 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .page-header p {
+      color: var(--el-text-color-regular);
+    }
+
+    & .issues-section h4 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .issue-content {
+      background-color: var(--el-fill-color-light);
+    }
+
+    & .issue-message {
+      color: var(--el-text-color-primary);
+    }
+
+    & .issue-suggestion {
+      color: var(--el-text-color-regular);
+    }
+
+    & .suggestions-section h4 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .suggestions-list li {
+      color: var(--el-text-color-regular);
+    }
+
+    & .chart-section h4 {
+      color: var(--el-text-color-primary);
+    }
+  }
 </style>

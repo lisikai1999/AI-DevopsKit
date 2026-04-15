@@ -161,4 +161,29 @@
     padding: 12px;
     border-radius: 6px;
   }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .log-view {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .page-header {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    }
+
+    & .page-header h1 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .page-header p {
+      color: var(--el-text-color-regular);
+    }
+
+    & .translation-box {
+      background-color: var(--el-fill-color-light);
+      color: var(--el-text-color-primary);
+    }
+  }
 </style>

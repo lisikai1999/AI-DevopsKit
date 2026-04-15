@@ -288,4 +288,50 @@
   :deep(.el-menu--horizontal > .el-menu-item:hover) {
     background-color: #f5f7fa;
   }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .app-container {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .app-header {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    & .app-title {
+      color: var(--el-text-color-primary);
+    }
+
+    & .app-main {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .app-footer {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+    }
+
+    & :deep(.el-menu--horizontal) {
+      background-color: var(--el-bg-color);
+    }
+
+    & :deep(.el-menu--horizontal > .el-menu-item) {
+      color: var(--el-text-color-regular);
+    }
+
+    & :deep(.el-menu--horizontal > .el-menu-item.is-active) {
+      background-color: var(--el-fill-color-light);
+      color: var(--el-color-primary);
+    }
+
+    & :deep(.el-menu--horizontal > .el-menu-item:hover) {
+      background-color: var(--el-fill-color-light);
+    }
+
+    & :deep(.el-link) {
+      color: var(--el-color-primary);
+    }
+  }
 </style>

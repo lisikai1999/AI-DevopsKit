@@ -517,4 +517,36 @@
         flex-wrap: wrap;
     }
     }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .history-view {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .page-header {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    }
+
+    & .page-header h1 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .page-header p {
+      color: var(--el-text-color-regular);
+    }
+
+    & .dialog-date {
+      color: var(--el-text-color-secondary);
+    }
+
+    & .dialog-content h4 {
+      color: var(--el-text-color-primary);
+    }
+
+    & :deep(.el-table__row:hover) {
+      background-color: var(--el-fill-color-light);
+    }
+  }
 </style>
