@@ -50,8 +50,9 @@
             type="text"
             @click="toggleDarkMode"
             circle
+            :title="isDarkMode ? '切换到亮色模式' : '切换到暗色模式'"
           >
-            <el-icon><Moon /></el-icon>
+            <el-icon><component :is="isDarkMode ? Sunny : Moon" /></el-icon>
           </el-button>
         </div>
       </div>
@@ -77,19 +78,48 @@
 </template>
 
 <script setup>
-  import { computed } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Failed, TrendCharts } from '@element-plus/icons-vue'
+  import { computed, watch, onMounted } from 'vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 
   const appStore = useAppStore()
 
   const aiMode = computed(() => aiService.getMode())
+  const isDarkMode = computed(() => appStore.isDarkMode)
 
   const toggleDarkMode = () => {
     appStore.toggleDarkMode()
-    // 这里可以添加实际的暗色模式切换逻辑
   }
+
+  const applyDarkMode = (isDark) => {
+    if (isDark) {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }
+
+  watch(isDarkMode, (newValue) => {
+    applyDarkMode(newValue)
+    localStorage.setItem('ai-devops-dark-mode', newValue)
+  })
+
+  onMounted(() => {
+    const savedDarkMode = localStorage.getItem('ai-devops-dark-mode')
+    if (savedDarkMode !== null) {
+      const isDark = savedDarkMode === 'true'
+      if (isDark !== appStore.isDarkMode) {
+        appStore.toggleDarkMode()
+      }
+    } else {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      if (prefersDark) {
+        appStore.toggleDarkMode()
+      }
+    }
+    applyDarkMode(appStore.isDarkMode)
+  })
 </script>
 
 <style scoped>
@@ -257,5 +287,51 @@
 
   :deep(.el-menu--horizontal > .el-menu-item:hover) {
     background-color: #f5f7fa;
+  }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .app-container {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .app-header {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+    }
+
+    & .app-title {
+      color: var(--el-text-color-primary);
+    }
+
+    & .app-main {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .app-footer {
+      background-color: var(--el-bg-color);
+      color: var(--el-text-color-primary);
+    }
+
+    & :deep(.el-menu--horizontal) {
+      background-color: var(--el-bg-color);
+    }
+
+    & :deep(.el-menu--horizontal > .el-menu-item) {
+      color: var(--el-text-color-regular);
+    }
+
+    & :deep(.el-menu--horizontal > .el-menu-item.is-active) {
+      background-color: var(--el-fill-color-light);
+      color: var(--el-color-primary);
+    }
+
+    & :deep(.el-menu--horizontal > .el-menu-item:hover) {
+      background-color: var(--el-fill-color-light);
+    }
+
+    & :deep(.el-link) {
+      color: var(--el-color-primary);
+    }
   }
 </style>

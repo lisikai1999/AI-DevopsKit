@@ -487,4 +487,47 @@
       margin-bottom: 15px;
     }
   }
+
+  /* 暗色模式样式 */
+  :global(html.dark) {
+    & .jenkinsfile-view {
+      background-color: var(--el-bg-color-page);
+    }
+
+    & .page-header {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+    }
+
+    & .page-header h1 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .page-header p {
+      color: var(--el-text-color-regular);
+    }
+
+    & .template-item {
+      border-color: var(--el-border-color);
+      background-color: var(--el-bg-color);
+    }
+
+    & .template-item:hover {
+      border-color: var(--el-color-primary);
+      background-color: var(--el-fill-color-light);
+    }
+
+    & .template-item.active {
+      border-color: var(--el-color-primary);
+      background-color: var(--el-fill-color-light);
+    }
+
+    & .template-item h4 {
+      color: var(--el-text-color-primary);
+    }
+
+    & .template-item p {
+      color: var(--el-text-color-regular);
+    }
+  }
 </style>
