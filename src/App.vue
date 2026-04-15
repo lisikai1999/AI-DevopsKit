@@ -52,7 +52,7 @@
             circle
             :title="isDarkMode ? '切换到亮色模式' : '切换到暗色模式'"
           >
-            <el-icon><Moon /></el-icon>
+            <el-icon><component :is="isDarkMode ? Sunny : Moon" /></el-icon>
           </el-button>
         </div>
       </div>
@@ -79,7 +79,7 @@
 
 <script setup>
   import { computed, watch, onMounted } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Failed, TrendCharts } from '@element-plus/icons-vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 
