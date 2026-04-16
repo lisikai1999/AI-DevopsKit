@@ -1,88 +1,88 @@
 <template>
-  <div class="billing-view">
-    <el-container>
-      <el-header class="page-header">
-        <h1>
-          <el-icon><TrendCharts /></el-icon>
-          AWS 账单分析
-        </h1>
-        <p>上传 CSV 或粘贴账单内容，AI 自动分析哪些资源消耗最多并给出优化建议</p>
-      </el-header>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-title">
+        <el-icon class="title-icon"><TrendCharts /></el-icon>
+        <h1>AWS 账单分析</h1>
+      </div>
+      <p class="page-subtitle">上传 CSV 或粘贴账单内容，AI 自动分析哪些资源消耗最多并给出优化建议</p>
+    </div>
 
-      <el-main>
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-card class="input-card">
-              <template #header>
-                <div class="card-header">
-                  <span>账单输入 (CSV)</span>
-                  <div class="header-actions">
-                    <input ref="fileInput" type="file" accept=".csv" @change="handleFile" />
-                    <el-button size="small" @click="loadSample">加载示例</el-button>
-                    <el-button size="small" @click="clearContent">清空</el-button>
-                  </div>
+    <div class="page-content">
+      <el-row :gutter="24">
+        <el-col :span="12">
+          <el-card class="content-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">账单输入 (CSV)</span>
+                <div class="header-actions">
+                  <input ref="fileInput" type="file" accept=".csv" @change="handleFile" class="file-input" />
+                  <el-button size="small" @click="loadSample">加载示例</el-button>
+                  <el-button size="small" @click="clearContent">清空</el-button>
                 </div>
-              </template>
-
-              <textarea v-model="csvContent" class="csv-textarea" placeholder="粘贴 CSV 内容或上传文件" />
-
-              <div class="action-buttons">
-                <el-button type="primary" @click="analyzeBilling" :loading="analyzing" :disabled="!csvContent.trim()">
-                  <el-icon><Search /></el-icon>
-                  开始分析
-                </el-button>
-                <el-button @click="clearContent">清空内容</el-button>
               </div>
-            </el-card>
-          </el-col>
+            </template>
 
-          <el-col :span="12">
-            <el-card v-if="result" class="result-card">
-              <template #header>
-                <div class="card-header">
-                  <span>分析结果</span>
-                </div>
-              </template>
+            <textarea v-model="csvContent" class="csv-textarea" placeholder="粘贴 CSV 内容或上传文件" />
 
-              <div class="summary">
-                <el-row :gutter="10">
+            <div class="action-buttons">
+              <el-button type="primary" size="large" @click="analyzeBilling" :loading="analyzing" :disabled="!csvContent.trim()">
+                <el-icon><Search /></el-icon>
+                开始分析
+              </el-button>
+              <el-button size="large" @click="clearContent">清空内容</el-button>
+            </div>
+          </el-card>
+        </el-col>
+
+        <el-col :span="12">
+          <el-card v-if="result" class="content-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">分析结果</span>
+              </div>
+            </template>
+
+            <div class="summary">
+              <div class="section">
+                <el-row :gutter="16">
                   <el-col :span="8">
-                    <el-card>
+                    <div class="stat-card">
                       <div class="stat-number">{{ result.summary.totalCost }} USD</div>
                       <div class="stat-label">总费用 ({{ result.summary.period }})</div>
-                    </el-card>
+                    </div>
                   </el-col>
                   <el-col :span="16">
-                    <h4>Top 资源</h4>
-                    <el-table :data="result.topResources" style="width: 100%">
+                    <h4 class="section-title">Top 资源</h4>
+                    <el-table :data="result.topResources" style="width: 100%" size="small">
                       <el-table-column prop="resource" label="资源" />
                       <el-table-column prop="cost" label="费用 (USD)" />
                       <el-table-column prop="percent" label="占比 (%)" />
                     </el-table>
                   </el-col>
                 </el-row>
-
-                <div v-if="result.suggestions?.length" style="margin-top: 16px;">
-                  <h4>建议</h4>
-                  <ul>
-                    <li v-for="s in result.suggestions" :key="s">{{ s }}</li>
-                  </ul>
-                </div>
-
-                <div v-if="chartOption" style="margin-top: 16px;">
-                  <h4>费用分布</h4>
-                  <EChartsWrapper :option="chartOption" height="300px" />
-                </div>
-
-                <div style="margin-top: 16px;">
-                  <el-button size="small" @click="saveToHistory">保存到历史</el-button>
-                </div>
               </div>
-            </el-card>
-          </el-col>
-        </el-row>
-      </el-main>
-    </el-container>
+
+              <div v-if="result.suggestions?.length" class="section">
+                <h4 class="section-title">建议</h4>
+                <ul class="suggestions-list">
+                  <li v-for="s in result.suggestions" :key="s">{{ s }}</li>
+                </ul>
+              </div>
+
+              <div v-if="chartOption" class="section">
+                <h4 class="section-title">费用分布</h4>
+                <EChartsWrapper :option="chartOption" height="300px" />
+              </div>
+
+              <div class="save-action">
+                <el-button size="small" @click="saveToHistory">保存到历史</el-button>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
@@ -166,70 +166,283 @@ const saveToHistory = () => {
 </script>
 
 <style scoped>
-  .billing-view {
-      padding: 20px;
-      min-height: 100vh;
-      background-color: #f5f7fa;
-    }
+  .page-container {
+    min-height: 100vh;
+    background-color: #f5f7fa;
+  }
 
-    /* 桌面端优化 */
-    @media (min-width: 1200px) {
-      .billing-view {
-          min-width: 1200px;
-      }
-    }
+  .page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px 20px;
+    margin-bottom: 32px;
+  }
 
-    .page-header {
-      background: white;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
+  .page-title {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
 
-    .page-header h1 {
-      margin: 0 0 8px 0;
-      color: #303133;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+  .title-icon {
+    font-size: 32px;
+    color: white;
+  }
 
-    .page-header p {
-      margin: 0;
-      color: #606266;
-    }
+  .page-title h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .page-subtitle {
+    margin: 0;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-left: 48px;
+  }
+
+  .page-content {
+    padding: 0 20px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .content-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .file-input {
+    font-size: 13px;
+  }
 
   .csv-textarea {
     width: 100%;
     min-height: 200px;
     font-family: Monaco, Consolas, monospace;
-    padding: 8px;
+    padding: 12px;
+    border: 1px solid #e4e7ed;
+    border-radius: 8px;
+    resize: vertical;
+    line-height: 1.5;
   }
 
-  /* 暗色模式样式 */
+  .csv-textarea:focus {
+    outline: none;
+    border-color: #409eff;
+  }
+
+  .action-buttons {
+    margin-top: 20px;
+    display: flex;
+    gap: 12px;
+  }
+
+  .section {
+    margin-bottom: 24px;
+  }
+
+  .section:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-title {
+    margin: 0 0 12px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-number {
+    font-size: 24px;
+    font-weight: 700;
+    color: white;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  .suggestions-list {
+    margin: 0;
+    padding-left: 20px;
+  }
+
+  .suggestions-list li {
+    margin-bottom: 8px;
+    color: #606266;
+    line-height: 1.6;
+  }
+
+  .save-action {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e4e7ed;
+  }
+
+  @media (min-width: 1400px) {
+    .page-header {
+      padding: 48px 40px;
+    }
+
+    .page-content {
+      padding: 0 40px 48px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .page-header {
+      padding: 32px 15px;
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      gap: 12px;
+    }
+
+    .title-icon {
+      font-size: 28px;
+    }
+
+    .page-title h1 {
+      font-size: 24px;
+    }
+
+    .page-subtitle {
+      font-size: 14px;
+      margin-left: 40px;
+    }
+
+    .page-content {
+      padding: 0 15px 32px;
+    }
+
+    .stat-number {
+      font-size: 20px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .page-header {
+      padding: 24px 10px;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      gap: 10px;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .title-icon {
+      font-size: 24px;
+    }
+
+    .page-title h1 {
+      font-size: 20px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      margin-left: 0;
+    }
+
+    .page-content {
+      padding: 0 10px 24px;
+    }
+
+    .header-actions {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .action-buttons {
+      flex-direction: column;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .stat-card {
+      padding: 16px;
+    }
+
+    .stat-number {
+      font-size: 18px;
+    }
+  }
+
   :global(html.dark) {
-    & .billing-view {
+    & .page-container {
       background-color: var(--el-bg-color-page);
     }
 
     & .page-header {
+      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
+    }
+
+    & .content-card {
       background-color: var(--el-bg-color);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
-    & .page-header h1 {
+    & .card-title {
       color: var(--el-text-color-primary);
-    }
-
-    & .page-header p {
-      color: var(--el-text-color-regular);
     }
 
     & .csv-textarea {
       background-color: var(--el-fill-color-light);
       color: var(--el-text-color-primary);
       border-color: var(--el-border-color);
+    }
+
+    & .section-title {
+      color: var(--el-text-color-primary);
+    }
+
+    & .stat-card {
+      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
+    }
+
+    & .suggestions-list li {
+      color: var(--el-text-color-regular);
+    }
+
+    & .save-action {
+      border-top-color: var(--el-border-color);
     }
   }
 </style>

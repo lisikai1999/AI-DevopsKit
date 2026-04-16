@@ -1,132 +1,127 @@
 <template>
-  <div class="jenkinsfile-view">
-    <el-container>
-      <el-header class="page-header">
-        <h1>
-          <el-icon><Tools /></el-icon>
-          Jenkinsfile 生成器
-        </h1>
-        <p>选择模板，填写参数，一键生成专业的 Jenkinsfile</p>
-      </el-header>
-      
-      <el-main>
-        <el-row :gutter="20">
-          <!-- 左侧模板选择和配置 -->
-          <el-col :span="8">
-            <el-card class="template-card">
-              <template #header>
-                <div class="card-header">
-                  <span>选择模板</span>
-                  <el-tag :type="selectedCategory === 'basic' ? 'primary' : 'success'">
-                    {{ selectedCategory === 'basic' ? '基础模板' : '高级模板' }}
-                  </el-tag>
-                </div>
-              </template>
-              
-              <el-radio-group v-model="selectedCategory" class="category-tabs">
-                <el-radio-button label="basic">基础模板</el-radio-button>
-                <el-radio-button label="advanced">高级模板</el-radio-button>
-              </el-radio-group>
-              
-              <div class="template-list">
-                <div
-                  v-for="template in filteredTemplates"
-                  :key="template.id"
-                  class="template-item"
-                  :class="{ active: selectedTemplate?.id === template.id }"
-                  @click="selectTemplate(template)"
-                >
-                  <h4>{{ template.name }}</h4>
-                  <p>{{ template.description }}</p>
-                </div>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-title">
+        <el-icon class="title-icon"><Tools /></el-icon>
+        <h1>Jenkinsfile 生成器</h1>
+      </div>
+      <p class="page-subtitle">选择模板，填写参数，一键生成专业的 Jenkinsfile</p>
+    </div>
+
+    <div class="page-content">
+      <el-row :gutter="24">
+        <el-col :span="8">
+          <el-card class="content-card template-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">选择模板</span>
+                <el-tag :type="selectedCategory === 'basic' ? 'primary' : 'success'" size="large">
+                  {{ selectedCategory === 'basic' ? '基础模板' : '高级模板' }}
+                </el-tag>
               </div>
-            </el-card>
+            </template>
             
-            <!-- 参数配置 -->
-            <el-card v-if="selectedTemplate" class="config-card">
-              <template #header>
-                <span>参数配置</span>
-              </template>
-              
-              <el-form :model="formData" label-width="120px">
-                <el-form-item
-                  v-for="field in selectedTemplate.fields"
-                  :key="field.name"
-                  :label="field.label"
-                  :required="field.required"
-                >
-                  <el-input
-                    v-if="field.type === 'text'"
-                    v-model="formData[field.name]"
-                    :placeholder="field.placeholder"
-                  />
-                  <el-select
-                    v-else-if="field.type === 'select'"
-                    v-model="formData[field.name]"
-                    style="width: 100%"
-                  >
-                    <el-option
-                      v-for="option in field.options"
-                      :key="option.value"
-                      :label="option.label"
-                      :value="option.value"
-                    />
-                  </el-select>
-                  <el-checkbox
-                    v-else-if="field.type === 'checkbox'"
-                    v-model="formData[field.name]"
-                  />
-                </el-form-item>
-              </el-form>
-              
-              <div class="action-buttons">
-                <el-button type="primary" @click="generateJenkinsfile" :loading="generating">
-                  <el-icon><Mic /></el-icon>
-                  生成 Jenkinsfile
-                </el-button>
-                <el-button @click="resetForm">重置</el-button>
+            <el-radio-group v-model="selectedCategory" class="category-tabs">
+              <el-radio-button label="basic">基础模板</el-radio-button>
+              <el-radio-button label="advanced">高级模板</el-radio-button>
+            </el-radio-group>
+            
+            <div class="template-list">
+              <div
+                v-for="template in filteredTemplates"
+                :key="template.id"
+                class="template-item"
+                :class="{ active: selectedTemplate?.id === template.id }"
+                @click="selectTemplate(template)"
+              >
+                <h4>{{ template.name }}</h4>
+                <p>{{ template.description }}</p>
               </div>
-            </el-card>
-          </el-col>
+            </div>
+          </el-card>
           
-          <!-- 右侧结果展示 -->
-          <el-col :span="16">
-            <el-card class="result-card">
-              <template #header>
-                <div class="card-header">
-                  <span>生成结果</span>
-                  <div class="header-actions">
-                    <el-button
-                      v-if="generatedContent"
-                      size="small"
-                      @click="copyToClipboard"
-                    >
-                      <el-icon><CopyDocument /></el-icon>
-                      复制
-                    </el-button>
-                    <el-button
-                      v-if="generatedContent"
-                      size="small"
-                      @click="downloadFile"
-                    >
-                      <el-icon><Download /></el-icon>
-                      下载
-                    </el-button>
-                  </div>
+          <el-card v-if="selectedTemplate" class="content-card config-card">
+            <template #header>
+              <span class="card-title">参数配置</span>
+            </template>
+            
+            <el-form :model="formData" label-width="120px">
+              <el-form-item
+                v-for="field in selectedTemplate.fields"
+                :key="field.name"
+                :label="field.label"
+                :required="field.required"
+              >
+                <el-input
+                  v-if="field.type === 'text'"
+                  v-model="formData[field.name]"
+                  :placeholder="field.placeholder"
+                />
+                <el-select
+                  v-else-if="field.type === 'select'"
+                  v-model="formData[field.name]"
+                  style="width: 100%"
+                >
+                  <el-option
+                    v-for="option in field.options"
+                    :key="option.value"
+                    :label="option.label"
+                    :value="option.value"
+                  />
+                </el-select>
+                <el-checkbox
+                  v-else-if="field.type === 'checkbox'"
+                  v-model="formData[field.name]"
+                />
+              </el-form-item>
+            </el-form>
+            
+            <div class="action-buttons">
+              <el-button type="primary" size="large" @click="generateJenkinsfile" :loading="generating">
+                <el-icon><Mic /></el-icon>
+                生成 Jenkinsfile
+              </el-button>
+              <el-button size="large" @click="resetForm">重置</el-button>
+            </div>
+          </el-card>
+        </el-col>
+        
+        <el-col :span="16">
+          <el-card class="content-card result-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">生成结果</span>
+                <div class="header-actions">
+                  <el-button
+                    v-if="generatedContent"
+                    size="small"
+                    @click="copyToClipboard"
+                  >
+                    <el-icon><CopyDocument /></el-icon>
+                    复制
+                  </el-button>
+                  <el-button
+                    v-if="generatedContent"
+                    size="small"
+                    @click="downloadFile"
+                  >
+                    <el-icon><Download /></el-icon>
+                    下载
+                  </el-button>
                 </div>
-              </template>
-              
-              <MonacoEditor
-                v-model="generatedContent"
-                language="groovy"
-                height="600px"
-                :readonly="false"
-              />
-            </el-card>
-          </el-col>
-        </el-row>
-      </el-main>
-    </el-container>
+              </div>
+            </template>
+            
+            <MonacoEditor
+              v-model="generatedContent"
+              language="groovy"
+              height="600px"
+              :readonly="false"
+            />
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
@@ -342,46 +337,57 @@
 </script>
 
 <style scoped>
-  .jenkinsfile-view {
-    padding: 20px;
+  .page-container {
     min-height: 100vh;
     background-color: #f5f7fa;
-    max-width: 1400px;
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-  }
-
-  /* 大屏幕适配 */
-  @media (min-width: 1400px) {
-    .jenkinsfile-view {
-      padding: 30px;
-    }
   }
 
   .page-header {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px 20px;
+    margin-bottom: 32px;
   }
 
-  .page-header h1 {
-    margin: 0 0 8px 0;
-    color: #303133;
+  .page-title {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 16px;
+    margin-bottom: 12px;
   }
 
-  .page-header p {
+  .title-icon {
+    font-size: 32px;
+    color: white;
+  }
+
+  .page-title h1 {
     margin: 0;
-    color: #606266;
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+  }
+
+  .page-subtitle {
+    margin: 0;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-left: 48px;
+  }
+
+  .page-content {
+    padding: 0 20px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .content-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   }
 
   .template-card {
-    margin-bottom: 20px;
+    margin-bottom: 24px;
   }
 
   .card-header {
@@ -390,8 +396,14 @@
     align-items: center;
   }
 
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+  }
+
   .category-tabs {
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     width: 100%;
   }
 
@@ -401,10 +413,10 @@
   }
 
   .template-item {
-    padding: 12px;
+    padding: 16px;
     border: 1px solid #e4e7ed;
-    border-radius: 6px;
-    margin-bottom: 8px;
+    border-radius: 8px;
+    margin-bottom: 12px;
     cursor: pointer;
     transition: all 0.3s;
   }
@@ -416,18 +428,20 @@
 
   .template-item.active {
     border-color: #409eff;
-    background-color: #409eff10;
+    background-color: #ecf5ff;
+    border-left-width: 3px;
   }
 
   .template-item h4 {
-    margin: 0 0 4px 0;
-    font-size: 14px;
+    margin: 0 0 6px 0;
+    font-size: 15px;
+    font-weight: 600;
     color: #303133;
   }
 
   .template-item p {
     margin: 0;
-    font-size: 12px;
+    font-size: 13px;
     color: #606266;
   }
 
@@ -436,9 +450,9 @@
   }
 
   .action-buttons {
-    margin-top: 20px;
+    margin-top: 24px;
     display: flex;
-    gap: 10px;
+    gap: 12px;
   }
 
   .result-card {
@@ -450,61 +464,112 @@
     gap: 8px;
   }
 
-  /* 平板适配 */
-  @media (max-width: 1024px) {
-    .jenkinsfile-view {
-      padding: 15px;
+  @media (min-width: 1400px) {
+    .page-header {
+      padding: 48px 40px;
     }
-    
+
+    .page-content {
+      padding: 0 40px 48px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .page-header {
+      padding: 32px 15px;
+      margin-bottom: 24px;
+    }
+
+    .page-title {
+      gap: 12px;
+    }
+
+    .title-icon {
+      font-size: 28px;
+    }
+
+    .page-title h1 {
+      font-size: 24px;
+    }
+
+    .page-subtitle {
+      font-size: 14px;
+      margin-left: 40px;
+    }
+
+    .page-content {
+      padding: 0 15px 32px;
+    }
+
     .result-card {
       height: calc(100vh - 220px);
     }
   }
 
-  /* 手机适配 */
   @media (max-width: 768px) {
-    .jenkinsfile-view {
-      padding: 10px;
+    .page-header {
+      padding: 24px 10px;
+      margin-bottom: 20px;
     }
-    
-    .page-header h1 {
-      font-size: 1.2rem;
+
+    .page-title {
+      gap: 10px;
+      flex-direction: column;
+      align-items: flex-start;
     }
-    
+
+    .title-icon {
+      font-size: 24px;
+    }
+
+    .page-title h1 {
+      font-size: 20px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      margin-left: 0;
+    }
+
+    .page-content {
+      padding: 0 10px 24px;
+    }
+
     .template-list {
       max-height: 150px;
     }
-    
+
     .result-card {
       height: calc(100vh - 240px);
     }
-    
+
     .action-buttons {
       flex-direction: column;
     }
-    
-    .el-col {
-      margin-bottom: 15px;
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
     }
   }
 
-  /* 暗色模式样式 */
   :global(html.dark) {
-    & .jenkinsfile-view {
+    & .page-container {
       background-color: var(--el-bg-color-page);
     }
 
     & .page-header {
+      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
+    }
+
+    & .content-card {
       background-color: var(--el-bg-color);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
-    & .page-header h1 {
+    & .card-title {
       color: var(--el-text-color-primary);
-    }
-
-    & .page-header p {
-      color: var(--el-text-color-regular);
     }
 
     & .template-item {
