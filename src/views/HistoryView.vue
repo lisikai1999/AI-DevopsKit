@@ -1,140 +1,133 @@
 <template>
-  <div class="history-view">
-    <el-container>
-      <el-header class="page-header">
-        <h1>
-          <el-icon><Clock /></el-icon>
-          历史记录
-        </h1>
-        <p>查看和管理您的操作历史</p>
-      </el-header>
-      
-      <el-main>
-        <el-card>
-          <template #header>
-            <div class="card-header">
-              <span>操作历史</span>
-              <div class="header-actions">
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-title">
+        <el-icon class="title-icon"><Clock /></el-icon>
+        <h1>历史记录</h1>
+      </div>
+      <p class="page-subtitle">查看和管理您的操作历史</p>
+    </div>
+
+    <div class="page-content">
+      <el-card class="content-card">
+        <template #header>
+          <div class="card-header">
+            <span class="card-title">操作历史</span>
+            <div class="header-actions">
+              <el-button
+                size="small"
+                @click="refreshHistory"
+              >
+                <el-icon><Refresh /></el-icon>
+                刷新
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                @click="clearAllHistory"
+                :disabled="!history.length"
+              >
+                <el-icon><Delete /></el-icon>
+                清空历史
+              </el-button>
+            </div>
+          </div>
+        </template>
+        
+        <div class="filters">
+          <el-radio-group v-model="filterType" size="small">
+            <el-radio-button label="all">全部</el-radio-button>
+            <el-radio-button label="jenkinsfile">Jenkinsfile</el-radio-button>
+            <el-radio-button label="dockerfile">Dockerfile</el-radio-button>
+            <el-radio-button label="billing">账单分析</el-radio-button>
+            <el-radio-button label="log">日志翻译</el-radio-button>
+          </el-radio-group>
+          
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索标题..."
+            prefix-icon="Search"
+            size="small"
+            class="search-input"
+            clearable
+          />
+        </div>
+        
+        <div v-if="filteredHistory.length > 0" class="history-list">
+          <el-table
+            :data="paginatedHistory"
+            style="width: 100%"
+            @row-click="viewHistory"
+          >
+            <el-table-column prop="type" label="类型" width="120">
+              <template #default="{ row }">
+                <el-tag :type="getTagType(row.type)" size="large">
+                  {{ getTypeLabel(row.type) }}
+                </el-tag>
+              </template>
+            </el-table-column>
+            
+            <el-table-column prop="title" label="标题" min-width="250" />
+            
+            <el-table-column prop="createdAt" label="创建时间" width="180">
+              <template #default="{ row }">
+                {{ formatDate(row.createdAt) }}
+              </template>
+            </el-table-column>
+            
+            <el-table-column label="操作" width="200">
+              <template #default="{ row }">
                 <el-button
                   size="small"
-                  @click="refreshHistory"
+                  @click.stop="viewHistory(row)"
                 >
-                  <el-icon><Refresh /></el-icon>
-                  刷新
+                  <el-icon><View /></el-icon>
+                  查看
+                </el-button>
+                <el-button
+                  size="small"
+                  @click.stop="editHistory(row)"
+                >
+                  <el-icon><Edit /></el-icon>
+                  编辑
                 </el-button>
                 <el-button
                   size="small"
                   type="danger"
-                  @click="clearAllHistory"
-                  :disabled="!history.length"
+                  @click.stop="deleteHistory(row.id)"
                 >
                   <el-icon><Delete /></el-icon>
-                  清空历史
+                  删除
                 </el-button>
-              </div>
-            </div>
-          </template>
+              </template>
+            </el-table-column>
+          </el-table>
           
-          <!-- 筛选器 -->
-          <div class="filters">
-            <el-radio-group v-model="filterType" size="small">
-              <el-radio-button label="all">全部</el-radio-button>
-              <el-radio-button label="jenkinsfile">Jenkinsfile</el-radio-button>
-              <el-radio-button label="dockerfile">Dockerfile</el-radio-button>
-              <el-radio-button label="billing">账单分析</el-radio-button>
-              <el-radio-button label="log">日志翻译</el-radio-button>
-            </el-radio-group>
-            
-            <el-input
-              v-model="searchKeyword"
-              placeholder="搜索标题..."
-              prefix-icon="Search"
-              size="small"
-              style="width: 200px; margin-left: 10px;"
-              clearable
+          <div class="pagination">
+            <el-pagination
+              v-model:current-page="currentPage"
+              v-model:page-size="pageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="filteredHistory.length"
+              layout="total, sizes, prev, pager, next, jumper"
+              @size-change="handleSizeChange"
+              @current-change="handleCurrentChange"
             />
           </div>
-          
-          <!-- 历史记录列表 -->
-          <div v-if="filteredHistory.length > 0" class="history-list">
-            <el-table
-              :data="paginatedHistory"
-              style="width: 100%"
-              @row-click="viewHistory"
-            >
-              <el-table-column prop="type" label="类型" width="100">
-                <template #default="{ row }">
-                  <el-tag :type="row.type === 'jenkinsfile' ? 'primary' : row.type === 'dockerfile' ? 'success' : 'info'">
-                    {{ row.type === 'jenkinsfile' ? 'Jenkinsfile' : row.type === 'dockerfile' ? 'Dockerfile' : row.type === 'billing' ? '账单' : '日志' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              
-              <el-table-column prop="title" label="标题" min-width="200" />
-              
-              <el-table-column prop="createdAt" label="创建时间" width="180">
-                <template #default="{ row }">
-                  {{ formatDate(row.createdAt) }}
-                </template>
-              </el-table-column>
-              
-              <el-table-column label="操作" width="180">
-                <template #default="{ row }">
-                  <el-button
-                    size="small"
-                    @click.stop="viewHistory(row)"
-                  >
-                    <el-icon><View /></el-icon>
-                    查看
-                  </el-button>
-                  <el-button
-                    size="small"
-                    @click.stop="editHistory(row)"
-                  >
-                    <el-icon><Edit /></el-icon>
-                    编辑
-                  </el-button>
-                  <el-button
-                    size="small"
-                    type="danger"
-                    @click.stop="deleteHistory(row.id)"
-                  >
-                    <el-icon><Delete /></el-icon>
-                    删除
-                  </el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-            
-            <!-- 分页 -->
-            <div class="pagination">
-              <el-pagination
-                v-model:current-page="currentPage"
-                v-model:page-size="pageSize"
-                :page-sizes="[10, 20, 50, 100]"
-                :total="filteredHistory.length"
-                layout="total, sizes, prev, pager, next, jumper"
-                @size-change="handleSizeChange"
-                @current-change="handleCurrentChange"
-              />
-            </div>
-          </div>
-          
-          <!-- 空状态 -->
-          <el-empty
-            v-else
-            description="暂无历史记录"
-            :image-size="200"
-          >
-            <el-button type="primary" @click="$router.push('/jenkinsfile')">
-              开始使用
-            </el-button>
-          </el-empty>
-        </el-card>
-      </el-main>
-    </el-container>
+        </div>
+        
+        <el-empty
+          v-else
+          description="暂无历史记录"
+          :image-size="200"
+        >
+          <el-button type="primary" @click="$router.push('/jenkinsfile')">
+            开始使用
+          </el-button>
+        </el-empty>
+      </el-card>
+    </div>
     
-    <!-- 历史详情对话框 -->
     <el-dialog
       v-model="dialogVisible"
       :title="selectedHistory?.title"
@@ -143,23 +136,25 @@
     >
       <div v-if="selectedHistory">
         <div class="dialog-header">
-          <el-tag :type="selectedHistory.type === 'jenkinsfile' ? 'primary' : 'success'">
-            {{ selectedHistory.type === 'jenkinsfile' ? 'Jenkinsfile' : 'Dockerfile' }}
+          <el-tag :type="getTagType(selectedHistory.type)" size="large">
+            {{ getTypeLabel(selectedHistory.type) }}
           </el-tag>
           <span class="dialog-date">{{ formatDate(selectedHistory.createdAt) }}</span>
         </div>
         
         <div class="dialog-content">
-          <h4>内容:</h4>
-          <MonacoEditor
-            v-model="selectedHistory.content"
-            :language="selectedHistory.type === 'jenkinsfile' ? 'groovy' : selectedHistory.type === 'dockerfile' ? 'dockerfile' : selectedHistory.type === 'billing' ? 'json' : 'plaintext'"
-            height="300px"
-            :readonly="!isEditMode"
-          />
+          <div class="section">
+            <h4 class="section-title">内容:</h4>
+            <MonacoEditor
+              v-model="selectedHistory.content"
+              :language="getEditorLanguage(selectedHistory.type)"
+              height="300px"
+              :readonly="!isEditMode"
+            />
+          </div>
           
-          <div v-if="selectedHistory.result" class="result-section">
-            <h4>结果:</h4>
+          <div v-if="selectedHistory.result" class="section result-section">
+            <h4 class="section-title">结果:</h4>
             <MonacoEditor
               v-model="selectedHistory.result"
               language="json"
@@ -375,174 +370,321 @@
     currentPage.value = page
     }
 
+    const getTagType = (type) => {
+      switch (type) {
+        case 'jenkinsfile':
+          return 'primary'
+        case 'dockerfile':
+          return 'success'
+        case 'billing':
+          return 'warning'
+        case 'log':
+          return 'info'
+        default:
+          return 'info'
+      }
+    }
+
+    const getTypeLabel = (type) => {
+      switch (type) {
+        case 'jenkinsfile':
+          return 'Jenkinsfile'
+        case 'dockerfile':
+          return 'Dockerfile'
+        case 'billing':
+          return '账单'
+        case 'log':
+          return '日志'
+        default:
+          return type
+      }
+    }
+
+    const getEditorLanguage = (type) => {
+      switch (type) {
+        case 'jenkinsfile':
+          return 'groovy'
+        case 'dockerfile':
+          return 'dockerfile'
+        case 'billing':
+          return 'json'
+        default:
+          return 'plaintext'
+      }
+    }
+
     onMounted(() => {
     appStore.loadHistory()
     })
 </script>
 
 <style scoped>
-    .history-view {
-    padding: 20px;
+  .page-container {
     min-height: 100vh;
     background-color: #f5f7fa;
-    }
+  }
 
-    /* 桌面端优化 */
-    @media (min-width: 1200px) {
-    .history-view {
-        min-width: 1200px;
-    }
-    }
+  .page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px 20px;
+    margin-bottom: 32px;
+  }
 
-    .page-header {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .page-header h1 {
-    margin: 0 0 8px 0;
-    color: #303133;
+  .page-title {
     display: flex;
     align-items: center;
-    gap: 10px;
-    }
+    gap: 16px;
+    margin-bottom: 12px;
+  }
 
-    .page-header p {
+  .title-icon {
+    font-size: 32px;
+    color: white;
+  }
+
+  .page-title h1 {
     margin: 0;
-    color: #606266;
-    }
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+  }
 
-    .card-header {
+  .page-subtitle {
+    margin: 0;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-left: 48px;
+  }
+
+  .page-content {
+    padding: 0 20px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .content-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    }
+  }
 
-    .header-actions {
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .header-actions {
     display: flex;
     gap: 8px;
-    }
+  }
 
-    .filters {
-    margin-bottom: 20px;
+  .filters {
+    margin-bottom: 24px;
     display: flex;
     align-items: center;
-    }
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 
-    .history-list {
-    margin-top: 20px;
-    }
+  .search-input {
+    width: 200px;
+  }
 
-    .pagination {
-    margin-top: 20px;
+  .history-list {
+    margin-top: 24px;
+  }
+
+  .pagination {
+    margin-top: 24px;
     display: flex;
     justify-content: center;
-    }
+  }
 
-    .dialog-header {
+  .dialog-header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    margin-bottom: 20px;
-    }
+    gap: 12px;
+    margin-bottom: 24px;
+  }
 
-    .dialog-date {
+  .dialog-date {
     color: #909399;
     font-size: 14px;
-    }
+  }
 
-    .dialog-content h4 {
-    margin: 20px 0 10px 0;
+  .dialog-content {
+    padding: 8px 0;
+  }
+
+  .section {
+    margin-bottom: 24px;
+  }
+
+  .section:last-child {
+    margin-bottom: 0;
+  }
+
+  .section-title {
+    margin: 0 0 12px 0;
+    font-size: 15px;
+    font-weight: 600;
     color: #303133;
-    }
+  }
 
-    .result-section {
-    margin-top: 20px;
-    }
+  .result-section {
+    margin-top: 24px;
+  }
 
-    .dialog-actions {
-    margin-top: 20px;
-    text-align: right;
+  .dialog-actions {
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #e4e7ed;
     display: flex;
-    gap: 10px;
+    gap: 12px;
     justify-content: flex-end;
-    }
+  }
 
-    :deep(.el-table__row) {
+  :deep(.el-table__row) {
     cursor: pointer;
-    }
+  }
 
-    :deep(.el-table__row:hover) {
+  :deep(.el-table__row:hover) {
     background-color: #f5f7fa;
+  }
+
+  @media (min-width: 1400px) {
+    .page-header {
+      padding: 48px 40px;
     }
 
-    /* 平板适配 */
-    @media (max-width: 1024px) {
-    .history-view {
-        padding: 15px;
+    .page-content {
+      padding: 0 40px 48px;
     }
+  }
+
+  @media (max-width: 1024px) {
+    .page-header {
+      padding: 32px 15px;
+      margin-bottom: 24px;
     }
 
-    /* 手机适配 */
-    @media (max-width: 768px) {
-    .history-view {
-        padding: 10px;
+    .page-title {
+      gap: 12px;
     }
-    
+
+    .title-icon {
+      font-size: 28px;
+    }
+
+    .page-title h1 {
+      font-size: 24px;
+    }
+
+    .page-subtitle {
+      font-size: 14px;
+      margin-left: 40px;
+    }
+
+    .page-content {
+      padding: 0 15px 32px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .page-header {
+      padding: 24px 10px;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      gap: 10px;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .title-icon {
+      font-size: 24px;
+    }
+
+    .page-title h1 {
+      font-size: 20px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      margin-left: 0;
+    }
+
+    .page-content {
+      padding: 0 10px 24px;
+    }
+
     .header-actions {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    
-    .filters {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 10px;
-    }
-    
-    .el-input {
-        margin-left: 0 !important;
-        width: 100% !important;
-    }
-    
-    .pagination {
-        text-align: center;
-    }
-    
-    .dialog-actions {
-        justify-content: center;
-        flex-wrap: wrap;
-    }
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
-  /* 暗色模式样式 */
+    .filters {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .search-input {
+      width: 100%;
+    }
+
+    .pagination {
+      text-align: center;
+    }
+
+    .dialog-actions {
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+  }
+
   :global(html.dark) {
-    & .history-view {
+    & .page-container {
       background-color: var(--el-bg-color-page);
     }
 
     & .page-header {
+      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
+    }
+
+    & .content-card {
       background-color: var(--el-bg-color);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
-    & .page-header h1 {
+    & .card-title {
       color: var(--el-text-color-primary);
-    }
-
-    & .page-header p {
-      color: var(--el-text-color-regular);
     }
 
     & .dialog-date {
       color: var(--el-text-color-secondary);
     }
 
-    & .dialog-content h4 {
+    & .section-title {
       color: var(--el-text-color-primary);
+    }
+
+    & .dialog-actions {
+      border-top-color: var(--el-border-color);
     }
 
     & :deep(.el-table__row:hover) {

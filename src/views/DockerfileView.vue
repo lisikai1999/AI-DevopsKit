@@ -1,131 +1,122 @@
 <template>
-  <div class="dockerfile-view">
-    <el-container>
-      <el-header class="page-header">
-        <h1>
-          <el-icon><Document /></el-icon>
-          Dockerfile 分析器
-        </h1>
-        <p>粘贴 Dockerfile 代码，检测漏洞并获取优化建议</p>
-      </el-header>
-      
-      <el-main>
-        <el-row :gutter="20">
-          <!-- 左侧输入区域 -->
-          <el-col :span="12">
-            <el-card class="input-card">
-              <template #header>
-                <div class="card-header">
-                  <span>Dockerfile 输入</span>
-                  <div class="header-actions">
-                    <el-button size="small" @click="loadSample('node')">Node.js 示例</el-button>
-                    <el-button size="small" @click="loadSample('python')">Python 示例</el-button>
-                    <el-button size="small" @click="clearContent">清空</el-button>
-                  </div>
+  <div class="page-container">
+    <div class="page-header">
+      <div class="page-title">
+        <el-icon class="title-icon"><Document /></el-icon>
+        <h1>Dockerfile 分析器</h1>
+      </div>
+      <p class="page-subtitle">粘贴 Dockerfile 代码，检测漏洞并获取优化建议</p>
+    </div>
+
+    <div class="page-content">
+      <el-row :gutter="24">
+        <el-col :span="12">
+          <el-card class="content-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">Dockerfile 输入</span>
+                <div class="header-actions">
+                  <el-button size="small" @click="loadSample('node')">Node.js 示例</el-button>
+                  <el-button size="small" @click="loadSample('python')">Python 示例</el-button>
+                  <el-button size="small" @click="clearContent">清空</el-button>
                 </div>
-              </template>
-              
-              <MonacoEditor
-                v-model="dockerfileContent"
-                language="dockerfile"
-                height="400px"
-                :options="editorOptions"
-              />
-              
-              <div class="action-buttons">
-                <el-button
-                  type="primary"
-                  @click="analyzeDockerfile"
-                  :loading="analyzing"
-                  :disabled="!dockerfileContent.trim()"
-                >
-                  <el-icon><Search /></el-icon>
-                  开始分析
-                </el-button>
-                <el-button @click="clearContent">清空内容</el-button>
               </div>
-            </el-card>
-          </el-col>
-          
-          <!-- 右侧分析结果 -->
-          <el-col :span="12">
-            <el-card v-if="analysisResult" class="result-card">
-              <template #header>
-                <div class="card-header">
-                  <span>分析结果</span>
-                  <el-tag :type="getScoreType(analysisResult.score)">
-                    得分: {{ analysisResult.score }}/100
-                  </el-tag>
-                </div>
-              </template>
-              
-              <!-- 问题列表 -->
-              <div v-if="analysisResult.issues.length > 0" class="issues-section">
-                <h4>检测到的问题</h4>
-                <el-collapse v-model="activeIssues">
-                  <el-collapse-item
-                    v-for="issue in analysisResult.issues"
-                    :key="issue.line"
-                    :title="`${issue.type.toUpperCase()} - 第${issue.line}行`"
-                    :name="issue.line"
-                  >
-                    <div class="issue-content">
-                      <p class="issue-message">{{ issue.message }}</p>
-                      <p class="issue-suggestion">建议: {{ issue.suggestion }}</p>
-                    </div>
-                  </el-collapse-item>
-                </el-collapse>
-              </div>
-              
-              <!-- 优化建议 -->
-              <div v-if="analysisResult.suggestions.length > 0" class="suggestions-section">
-                <h4>优化建议</h4>
-                <ul class="suggestions-list">
-                  <li v-for="suggestion in analysisResult.suggestions" :key="suggestion">
-                    {{ suggestion }}
-                  </li>
-                </ul>
-              </div>
-              
-              <!-- 图表展示 -->
-              <div v-if="chartOption" class="chart-section">
-                <h4>问题分布图</h4>
-                <EChartsWrapper :option="chartOption" height="300px" />
-              </div>
-            </el-card>
-          </el-col>
-        </el-row>
+            </template>
+            
+            <MonacoEditor
+              v-model="dockerfileContent"
+              language="dockerfile"
+              height="400px"
+              :options="editorOptions"
+            />
+            
+            <div class="action-buttons">
+              <el-button
+                type="primary"
+                size="large"
+                @click="analyzeDockerfile"
+                :loading="analyzing"
+                :disabled="!dockerfileContent.trim()"
+              >
+                <el-icon><Search /></el-icon>
+                开始分析
+              </el-button>
+              <el-button size="large" @click="clearContent">清空内容</el-button>
+            </div>
+          </el-card>
+        </el-col>
         
-        <!-- 优化后的 Dockerfile -->
-        <el-row v-if="analysisResult && analysisResult.optimizedContent" :gutter="20" style="margin-top: 20px;">
-          <el-col :span="24">
-            <el-card class="optimized-card">
-              <template #header>
-                <div class="card-header">
-                  <span>优化后的 Dockerfile</span>
-                  <div class="header-actions">
-                    <el-button size="small" @click="copyOptimized">
-                      <el-icon><CopyDocument /></el-icon>
-                      复制
-                    </el-button>
-                    <el-button size="small" @click="downloadOptimized">
-                      <el-icon><Download /></el-icon>
-                      下载
-                    </el-button>
+        <el-col :span="12">
+          <el-card v-if="analysisResult" class="content-card">
+            <template #header>
+              <div class="card-header">
+                <span class="card-title">分析结果</span>
+                <el-tag :type="getScoreType(analysisResult.score)" size="large">
+                  得分: {{ analysisResult.score }}/100
+                </el-tag>
+              </div>
+            </template>
+            
+            <div v-if="analysisResult.issues.length > 0" class="section">
+              <h4 class="section-title">检测到的问题</h4>
+              <el-collapse v-model="activeIssues">
+                <el-collapse-item
+                  v-for="issue in analysisResult.issues"
+                  :key="issue.line"
+                  :title="`${issue.type.toUpperCase()} - 第${issue.line}行`"
+                  :name="issue.line"
+                >
+                  <div class="issue-content">
+                    <p class="issue-message">{{ issue.message }}</p>
+                    <p class="issue-suggestion">建议: {{ issue.suggestion }}</p>
                   </div>
-                </div>
-              </template>
-              
-              <MonacoEditor
-                v-model="analysisResult.optimizedContent"
-                language="dockerfile"
-                height="300px"
-              />
-            </el-card>
-          </el-col>
-        </el-row>
-      </el-main>
-    </el-container>
+                </el-collapse-item>
+              </el-collapse>
+            </div>
+            
+            <div v-if="analysisResult.suggestions.length > 0" class="section">
+              <h4 class="section-title">优化建议</h4>
+              <ul class="suggestions-list">
+                <li v-for="suggestion in analysisResult.suggestions" :key="suggestion">
+                  {{ suggestion }}
+                </li>
+              </ul>
+            </div>
+            
+            <div v-if="chartOption" class="section">
+              <h4 class="section-title">问题分布图</h4>
+              <EChartsWrapper :option="chartOption" height="300px" />
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <div v-if="analysisResult && analysisResult.optimizedContent" class="optimized-section">
+        <el-card class="content-card">
+          <template #header>
+            <div class="card-header">
+              <span class="card-title">优化后的 Dockerfile</span>
+              <div class="header-actions">
+                <el-button size="small" @click="copyOptimized">
+                  <el-icon><CopyDocument /></el-icon>
+                  复制
+                </el-button>
+                <el-button size="small" @click="downloadOptimized">
+                  <el-icon><Download /></el-icon>
+                  下载
+                </el-button>
+              </div>
+            </div>
+          </template>
+          
+          <MonacoEditor
+            v-model="analysisResult.optimizedContent"
+            language="dockerfile"
+            height="300px"
+          />
+        </el-card>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -276,171 +267,232 @@
 </script>
 
 <style scoped>
-    .dockerfile-view {
-      padding: 20px;
-      min-height: 100vh;
-      background-color: #f5f7fa;
-    }
+  .page-container {
+    min-height: 100vh;
+    background-color: #f5f7fa;
+  }
 
-    /* 桌面端优化 */
-    @media (min-width: 1200px) {
-      .dockerfile-view {
-          min-width: 1200px;
-      }
-    }
+  .page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 40px 20px;
+    margin-bottom: 32px;
+  }
 
-    .page-header {
-    background: white;
-    padding: 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .page-header h1 {
-    margin: 0 0 8px 0;
-    color: #303133;
+  .page-title {
     display: flex;
     align-items: center;
-    gap: 10px;
-    }
+    gap: 16px;
+    margin-bottom: 12px;
+  }
 
-    .page-header p {
+  .title-icon {
+    font-size: 32px;
+    color: white;
+  }
+
+  .page-title h1 {
     margin: 0;
-    color: #606266;
-    }
+    font-size: 28px;
+    font-weight: 600;
+    color: white;
+  }
 
-    .card-header {
+  .page-subtitle {
+    margin: 0;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.9);
+    margin-left: 48px;
+  }
+
+  .page-content {
+    padding: 0 20px 40px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .content-card {
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  }
+
+  .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    }
+  }
 
-    .header-actions {
+  .card-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .header-actions {
     display: flex;
     gap: 8px;
-    }
+  }
 
-    .action-buttons {
-    margin-top: 15px;
+  .action-buttons {
+    margin-top: 20px;
     display: flex;
-    gap: 10px;
-    }
+    gap: 12px;
+  }
 
-    .result-card {
-    height: fit-content;
-    }
+  .section {
+    margin-bottom: 24px;
+  }
 
-    .issues-section {
-    margin-bottom: 20px;
-    }
+  .section:last-child {
+    margin-bottom: 0;
+  }
 
-    .issues-section h4 {
-    margin: 0 0 10px 0;
+  .section-title {
+    margin: 0 0 16px 0;
+    font-size: 15px;
+    font-weight: 600;
     color: #303133;
-    }
+  }
 
-    .issue-content {
-    padding: 10px;
+  .issue-content {
+    padding: 16px;
     background-color: #f8f9fa;
-    border-radius: 4px;
-    }
+    border-radius: 8px;
+  }
 
-    .issue-message {
-    margin: 0 0 5px 0;
+  .issue-message {
+    margin: 0 0 8px 0;
     font-weight: 500;
     color: #303133;
-    }
+  }
 
-    .issue-suggestion {
+  .issue-suggestion {
     margin: 0;
     color: #606266;
     font-style: italic;
-    }
+  }
 
-    .suggestions-section {
-    margin-bottom: 20px;
-    }
-
-    .suggestions-section h4 {
-    margin: 0 0 10px 0;
-    color: #303133;
-    }
-
-    .suggestions-list {
+  .suggestions-list {
     margin: 0;
     padding-left: 20px;
-    }
+  }
 
-    .suggestions-list li {
-    margin-bottom: 5px;
+  .suggestions-list li {
+    margin-bottom: 8px;
     color: #606266;
+    line-height: 1.6;
+  }
+
+  .optimized-section {
+    margin-top: 24px;
+  }
+
+  @media (min-width: 1400px) {
+    .page-header {
+      padding: 48px 40px;
     }
 
-    .chart-section {
-    margin-top: 20px;
+    .page-content {
+      padding: 0 40px 48px;
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .page-header {
+      padding: 32px 15px;
+      margin-bottom: 24px;
     }
 
-    .chart-section h4 {
-    margin: 0 0 10px 0;
-    color: #303133;
+    .page-title {
+      gap: 12px;
     }
 
-    .optimized-card {
-    margin-top: 20px;
+    .title-icon {
+      font-size: 28px;
     }
 
-    /* 平板适配 */
-    @media (max-width: 1024px) {
-    .dockerfile-view {
-        padding: 15px;
-    }
+    .page-title h1 {
+      font-size: 24px;
     }
 
-    /* 手机适配 */
-    @media (max-width: 768px) {
-    .dockerfile-view {
-        padding: 10px;
+    .page-subtitle {
+      font-size: 14px;
+      margin-left: 40px;
     }
-    
+
+    .page-content {
+      padding: 0 15px 32px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .page-header {
+      padding: 24px 10px;
+      margin-bottom: 20px;
+    }
+
+    .page-title {
+      gap: 10px;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .title-icon {
+      font-size: 24px;
+    }
+
+    .page-title h1 {
+      font-size: 20px;
+    }
+
+    .page-subtitle {
+      font-size: 13px;
+      margin-left: 0;
+    }
+
+    .page-content {
+      padding: 0 10px 24px;
+    }
+
     .header-actions {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-    
-    .action-buttons {
-        flex-direction: column;
-    }
-    
-    .el-col {
-        margin-bottom: 15px;
-    }
-    
-    .chart-section {
-        margin-top: 15px;
-    }
+      flex-wrap: wrap;
+      gap: 8px;
     }
 
-  /* 暗色模式样式 */
+    .action-buttons {
+      flex-direction: column;
+    }
+
+    .card-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .optimized-section {
+      margin-top: 20px;
+    }
+  }
+
   :global(html.dark) {
-    & .dockerfile-view {
+    & .page-container {
       background-color: var(--el-bg-color-page);
     }
 
     & .page-header {
-      background-color: var(--el-bg-color);
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
+      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
     }
 
-    & .page-header h1 {
+    & .content-card {
+      background-color: var(--el-bg-color);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    & .card-title {
       color: var(--el-text-color-primary);
     }
 
-    & .page-header p {
-      color: var(--el-text-color-regular);
-    }
-
-    & .issues-section h4 {
+    & .section-title {
       color: var(--el-text-color-primary);
     }
 
@@ -456,16 +508,8 @@
       color: var(--el-text-color-regular);
     }
 
-    & .suggestions-section h4 {
-      color: var(--el-text-color-primary);
-    }
-
     & .suggestions-list li {
       color: var(--el-text-color-regular);
-    }
-
-    & .chart-section h4 {
-      color: var(--el-text-color-primary);
     }
   }
 </style>
