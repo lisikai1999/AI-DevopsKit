@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
  * 历史记录项的结构说明（替代TS的interface）
  * @typedef {Object} HistoryItem
  * @property {string} id - 唯一标识
- * @property {'jenkinsfile' | 'dockerfile'} type - 类型
+ * @property {'jenkinsfile' | 'dockerfile' | 'billing' | 'log'} type - 类型
  * @property {string} title - 标题
  * @property {string} content - 内容
  * @property {string} [result] - 结果（可选）

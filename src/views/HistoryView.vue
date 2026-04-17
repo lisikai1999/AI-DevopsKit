@@ -400,6 +400,8 @@
           return 'dockerfile'
         case 'billing':
           return 'json'
+        case 'log':
+          return 'plaintext'
         default:
           return 'plaintext'
       }
