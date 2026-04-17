@@ -77,9 +77,9 @@
   import { Failed, Search } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import { aiService } from '@/services/ai-service'
-  import { useAppStore } from '@/stores/app'
+  import { useHistory } from '@/composables/useHistory'
 
-  const appStore = useAppStore()
+  const { saveLogTranslation } = useHistory()
 
   const logContent = ref('')
   const translating = ref(false)
@@ -118,99 +118,12 @@
   }
 
   const saveToHistory = () => {
-    if (!result.value) return
-    appStore.addToHistory({ type: 'log', title: '日志翻译', content: logContent.value, result: JSON.stringify(result.value) })
-    ElMessage.success('已保存到历史')
+    saveLogTranslation(result.value, logContent.value)
   }
 </script>
 
 <style scoped>
-  .page-container {
-    min-height: 100vh;
-    background-color: #f5f7fa;
-  }
-
-  .page-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 40px 20px;
-    margin-bottom: 32px;
-  }
-
-  .page-title {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
-
-  .title-icon {
-    font-size: 32px;
-    color: white;
-  }
-
-  .page-title h1 {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 600;
-    color: white;
-  }
-
-  .page-subtitle {
-    margin: 0;
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.9);
-    margin-left: 48px;
-  }
-
-  .page-content {
-    padding: 0 20px 40px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .content-card {
-    border-radius: 12px;
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .card-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #303133;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  .action-buttons {
-    margin-top: 20px;
-    display: flex;
-    gap: 12px;
-  }
-
-  .section {
-    margin-bottom: 24px;
-  }
-
-  .section:last-child {
-    margin-bottom: 0;
-  }
-
-  .section-title {
-    margin: 0 0 12px 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: #303133;
-  }
+  @import '@/assets/page-styles.css';
 
   .translation-box {
     white-space: pre-wrap;
@@ -244,111 +157,7 @@
     border-top: 1px solid #e4e7ed;
   }
 
-  @media (min-width: 1400px) {
-    .page-header {
-      padding: 48px 40px;
-    }
-
-    .page-content {
-      padding: 0 40px 48px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    .page-header {
-      padding: 32px 15px;
-      margin-bottom: 24px;
-    }
-
-    .page-title {
-      gap: 12px;
-    }
-
-    .title-icon {
-      font-size: 28px;
-    }
-
-    .page-title h1 {
-      font-size: 24px;
-    }
-
-    .page-subtitle {
-      font-size: 14px;
-      margin-left: 40px;
-    }
-
-    .page-content {
-      padding: 0 15px 32px;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .page-header {
-      padding: 24px 10px;
-      margin-bottom: 20px;
-    }
-
-    .page-title {
-      gap: 10px;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .title-icon {
-      font-size: 24px;
-    }
-
-    .page-title h1 {
-      font-size: 20px;
-    }
-
-    .page-subtitle {
-      font-size: 13px;
-      margin-left: 0;
-    }
-
-    .page-content {
-      padding: 0 10px 24px;
-    }
-
-    .header-actions {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
-    .action-buttons {
-      flex-direction: column;
-    }
-
-    .card-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-    }
-  }
-
   :global(html.dark) {
-    & .page-container {
-      background-color: var(--el-bg-color-page);
-    }
-
-    & .page-header {
-      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
-    }
-
-    & .content-card {
-      background-color: var(--el-bg-color);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    & .card-title {
-      color: var(--el-text-color-primary);
-    }
-
-    & .section-title {
-      color: var(--el-text-color-primary);
-    }
-
     & .translation-box {
       background-color: var(--el-fill-color-light);
       color: var(--el-text-color-primary);
