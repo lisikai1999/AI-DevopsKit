@@ -119,6 +119,9 @@
       }
     }
     applyDarkMode(appStore.isDarkMode)
+    
+    // 应用启动时加载历史记录
+    appStore.loadHistory()
   })
 </script>
 

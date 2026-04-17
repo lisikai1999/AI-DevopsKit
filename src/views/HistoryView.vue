@@ -264,7 +264,7 @@
     }
 
     const refreshHistory = () => {
-    appStore.loadHistory()
+    appStore.loadHistory(true)
     ElMessage.success('历史记录已刷新')
     }
 
@@ -312,17 +312,9 @@
     if (!selectedHistory.value) return
     
     try {
-        // 更新内容
-        const index = history.value.findIndex(item => item.id === selectedHistory.value.id)
-        if (index !== -1) {
-        history.value[index] = {
-            ...selectedHistory.value,
-            createdAt: new Date().toISOString() // 更新修改时间
-        }
-        
-        // 保存到 localStorage
-        localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
-        }
+        appStore.updateHistoryItem(selectedHistory.value.id, {
+            content: selectedHistory.value.content
+        })
         
         isEditMode.value = false
         ElMessage.success('保存成功')
@@ -408,6 +400,8 @@
           return 'dockerfile'
         case 'billing':
           return 'json'
+        case 'log':
+          return 'plaintext'
         default:
           return 'plaintext'
       }
