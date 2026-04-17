@@ -77,6 +77,7 @@
   import { Failed, Search } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import { aiService } from '@/services/ai-service'
+  import { analyzeError, formatUserMessage } from '@/utils/errorHandler'
   import { useHistory } from '@/composables/useHistory'
 
   const { saveLogTranslation } = useHistory()
@@ -86,7 +87,8 @@
   const result = ref(null)
 
   const loadSample = () => {
-    logContent.value = `[ERROR] Failed to connect to DB: timeout while connecting to 10.0.0.5:5432\nCaused by: Connection timed out`}
+    logContent.value = `[ERROR] Failed to connect to DB: timeout while connecting to 10.0.0.5:5432\nCaused by: Connection timed out`
+  }
 
   const clearContent = () => {
     logContent.value = ''
@@ -102,16 +104,49 @@
     translating.value = true
     try {
       const res = await aiService.translateLog(logContent.value)
+      
       if (!res.success) {
-        ElMessage.error(res.error || '翻译失败')
+        const errorDetails = res.errorDetails
+        console.error('[LogView] 翻译失败:', {
+          error: res.error,
+          details: errorDetails
+        })
+        
+        let userMessage = res.error || '翻译失败'
+        
+        if (errorDetails?.type === 'AUTH') {
+          userMessage = `${userMessage} - 请检查 API 密钥配置`
+        } else if (errorDetails?.type === 'NETWORK' || errorDetails?.type === 'TIMEOUT') {
+          userMessage = `${userMessage} - 请检查网络连接`
+        }
+        
+        ElMessage.error(userMessage)
         return
       }
 
-      result.value = JSON.parse(res.content)
-      ElMessage.success('翻译完成')
-    } catch (err) {
-      console.log(err)
-      ElMessage.error('处理出错')
+      try {
+        result.value = JSON.parse(res.content)
+        ElMessage.success('翻译完成')
+      } catch (parseError) {
+        console.error('[LogView] 解析翻译结果失败:', parseError)
+        
+        result.value = {
+          translation: res.content,
+          explanation: 'AI返回格式异常，已显示原始内容',
+          fixes: []
+        }
+        
+        ElMessage.warning('翻译完成，但结果格式异常')
+      }
+    } catch (error) {
+      const { details } = analyzeError(error)
+      
+      console.error('[LogView] 翻译过程中发生错误:', {
+        error: error.message,
+        details
+      })
+      
+      ElMessage.error(formatUserMessage(error, '翻译失败，请重试'))
     } finally {
       translating.value = false
     }

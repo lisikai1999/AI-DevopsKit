@@ -129,6 +129,7 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import { aiService } from '@/services/ai-service'
+  import { analyzeError, formatUserMessage } from '@/utils/errorHandler'
   import { Tools, Mic, CopyDocument, Download } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import { useHistory } from '@/composables/useHistory'
@@ -244,7 +245,6 @@
       return
     }
     
-    // 验证必填字段
     const missingFields = selectedTemplate.value.fields.filter(
       field => field.required && !formData.value[field.name]
     )
@@ -258,23 +258,44 @@
 
     try {
       const res = await aiService.generateJenkinsfile(selectedTemplate.value.template, formData.value, selectedTemplate.value.id)
+      
       if (!res.success) {
-        ElMessage.error(res.error || '生成失败')
+        const errorDetails = res.errorDetails
+        console.error('[JenkinsfileView] 生成失败:', {
+          error: res.error,
+          details: errorDetails
+        })
+        
+        let userMessage = res.error || '生成失败'
+        
+        if (errorDetails?.type === 'AUTH') {
+          userMessage = `${userMessage} - 请检查 API 密钥配置`
+        } else if (errorDetails?.type === 'NETWORK' || errorDetails?.type === 'TIMEOUT') {
+          userMessage = `${userMessage} - 请检查网络连接`
+        } else if (errorDetails?.type === 'API') {
+          userMessage = `${userMessage} - AI 服务暂时不可用`
+        }
+        
+        ElMessage.error(userMessage)
         return
       }
 
-      // 清理可能的代码块包裹（```groovy / ```）
       let content = res.content.replace(/^```(?:groovy|jenkinsfile)?\s*/, '').replace(/\s*```$/, '').trim()
 
       generatedContent.value = content
 
-      // 保存到历史记录
       saveJenkinsfile(selectedTemplate.value.name, content, false)
 
       ElMessage.success('Jenkinsfile 生成成功!')
     } catch (error) {
-      console.error('生成 Jenkinsfile 出错:', error)
-      ElMessage.error('生成失败，请重试')
+      const { userMessage, details } = analyzeError(error)
+      
+      console.error('[JenkinsfileView] 生成过程中发生错误:', {
+        error: error.message,
+        details
+      })
+      
+      ElMessage.error(formatUserMessage(error, '生成失败，请重试'))
     } finally {
       generating.value = false
     }

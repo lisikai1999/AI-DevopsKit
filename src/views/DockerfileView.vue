@@ -124,6 +124,7 @@
   import { ref, computed } from 'vue'
   import { ElMessage } from 'element-plus'
   import { aiService } from '@/services/ai-service'
+  import { analyzeError, formatUserMessage } from '@/utils/errorHandler'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import EChartsWrapper from '@/components/EChartsWrapper.vue'
   import { Document, Search, CopyDocument, Download } from '@element-plus/icons-vue'
@@ -218,19 +219,53 @@
     
     try {
       const res = await aiService.analyzeDockerfile(dockerfileContent.value)
+      
       if (!res.success) {
-        ElMessage.error(res.error || '分析失败')
+        const errorDetails = res.errorDetails
+        console.error('[DockerfileView] 分析失败:', {
+          error: res.error,
+          details: errorDetails
+        })
+        
+        let userMessage = res.error || '分析失败'
+        
+        if (errorDetails?.type === 'AUTH') {
+          userMessage = `${userMessage} - 请检查 API 密钥配置`
+        } else if (errorDetails?.type === 'NETWORK' || errorDetails?.type === 'TIMEOUT') {
+          userMessage = `${userMessage} - 请检查网络连接`
+        }
+        
+        ElMessage.error(userMessage)
         return
       }
 
-      analysisResult.value = JSON.parse(res.content)
-      
-      // 保存到历史记录
-      saveDockerfileAnalysis(analysisResult.value, dockerfileContent.value, false)
-      
-      ElMessage.success(`分析完成! 得分: ${analysisResult.value.score}/100`)
+      try {
+        analysisResult.value = JSON.parse(res.content)
+        
+        saveDockerfileAnalysis(analysisResult.value, dockerfileContent.value, false)
+        
+        ElMessage.success(`分析完成! 得分: ${analysisResult.value.score}/100`)
+      } catch (parseError) {
+        console.error('[DockerfileView] 解析分析结果失败:', parseError)
+        
+        analysisResult.value = {
+          issues: [],
+          suggestions: [res.content.substring(0, 500)],
+          score: 70,
+          optimizedContent: dockerfileContent.value
+        }
+        
+        ElMessage.warning('分析完成，但结果格式异常')
+      }
     } catch (error) {
-      ElMessage.error('分析失败，请重试')
+      const { details } = analyzeError(error)
+      
+      console.error('[DockerfileView] 分析过程中发生错误:', {
+        error: error.message,
+        details
+      })
+      
+      ElMessage.error(formatUserMessage(error, '分析失败，请重试'))
     } finally {
       analyzing.value = false
     }

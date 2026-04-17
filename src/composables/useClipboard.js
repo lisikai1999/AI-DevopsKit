@@ -1,10 +1,29 @@
 import { ElMessage } from 'element-plus'
+import { analyzeError, ErrorType } from '@/utils/errorHandler'
 
 /**
  * 剪贴板和文件下载相关的 Composable
  * @returns {Object} 相关方法
  */
 export const useClipboard = () => {
+  /**
+   * 格式化错误消息供用户显示
+   * @param {Error} error - 错误对象
+   * @param {string} action - 操作名称
+   * @returns {string} 用户友好的错误消息
+   */
+  const formatUserError = (error, action) => {
+    const { userMessage, details } = analyzeError(error)
+    
+    console.error(`[useClipboard] ${action}失败`, {
+      error: error.message,
+      type: error.name,
+      details
+    })
+    
+    return `${action}失败: ${userMessage || error.message || '未知错误'}`
+  }
+
   /**
    * 复制文本到剪贴板
    * @param {string} text - 要复制的文本内容
@@ -17,11 +36,22 @@ export const useClipboard = () => {
     }
     
     try {
+      if (!navigator.clipboard) {
+        throw new Error('浏览器不支持 Clipboard API')
+      }
+      
       await navigator.clipboard.writeText(text)
       ElMessage.success(successMessage)
     } catch (error) {
-      console.error('复制到剪贴板失败:', error)
-      ElMessage.error('复制失败')
+      const errorMsg = formatUserError(error, '复制')
+      
+      if (error.name === 'NotAllowedError') {
+        ElMessage.error(`${errorMsg} - 请检查浏览器的剪贴板权限设置`)
+      } else if (error.message?.includes('不支持')) {
+        ElMessage.error(`${errorMsg} - 您的浏览器不支持此功能`)
+      } else {
+        ElMessage.error(errorMsg)
+      }
     }
   }
 
@@ -41,17 +71,24 @@ export const useClipboard = () => {
     try {
       const blob = new Blob([content], { type })
       const url = URL.createObjectURL(blob)
+      
       const a = document.createElement('a')
       a.href = url
-      a.download = filename
+      a.download = filename || 'download.txt'
+      a.style.display = 'none'
+      
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      
+      setTimeout(() => {
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 100)
+      
       ElMessage.success(successMessage)
     } catch (error) {
-      console.error('下载文件失败:', error)
-      ElMessage.error('下载失败')
+      const errorMsg = formatUserError(error, '下载')
+      ElMessage.error(errorMsg)
     }
   }
 
