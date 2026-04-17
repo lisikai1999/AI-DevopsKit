@@ -76,7 +76,7 @@
               </el-form-item>
             </el-form>
             
-            <div class="action-buttons">
+            <div class="action-buttons jenkins-action-buttons">
               <el-button type="primary" size="large" @click="generateJenkinsfile" :loading="generating">
                 <el-icon><Mic /></el-icon>
                 生成 Jenkinsfile
@@ -95,7 +95,7 @@
                   <el-button
                     v-if="generatedContent"
                     size="small"
-                    @click="copyToClipboard"
+                    @click="handleCopy"
                   >
                     <el-icon><CopyDocument /></el-icon>
                     复制
@@ -103,7 +103,7 @@
                   <el-button
                     v-if="generatedContent"
                     size="small"
-                    @click="downloadFile"
+                    @click="handleDownload"
                   >
                     <el-icon><Download /></el-icon>
                     下载
@@ -129,9 +129,14 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import { aiService } from '@/services/ai-service'
+  import { analyzeError, formatUserMessage } from '@/utils/errorHandler'
   import { Tools, Mic, CopyDocument, Download } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
-  import { useAppStore } from '@/stores/app'
+  import { useHistory } from '@/composables/useHistory'
+  import { useClipboard } from '@/composables/useClipboard'
+
+  const { saveJenkinsfile } = useHistory()
+  const { copyToClipboard, downloadFile } = useClipboard()
 
   // 内联模板数据
   const jenkinsfileTemplates = {
@@ -205,8 +210,6 @@
     ]
   }
 
-  const appStore = useAppStore()
-
   const selectedCategory = ref('basic')
   const selectedTemplate = ref(null)
   const formData = ref({})
@@ -242,7 +245,6 @@
       return
     }
     
-    // 验证必填字段
     const missingFields = selectedTemplate.value.fields.filter(
       field => field.required && !formData.value[field.name]
     )
@@ -256,53 +258,55 @@
 
     try {
       const res = await aiService.generateJenkinsfile(selectedTemplate.value.template, formData.value, selectedTemplate.value.id)
+      
       if (!res.success) {
-        ElMessage.error(res.error || '生成失败')
+        const errorDetails = res.errorDetails
+        console.error('[JenkinsfileView] 生成失败:', {
+          error: res.error,
+          details: errorDetails
+        })
+        
+        let userMessage = res.error || '生成失败'
+        
+        if (errorDetails?.type === 'AUTH') {
+          userMessage = `${userMessage} - 请检查 API 密钥配置`
+        } else if (errorDetails?.type === 'NETWORK' || errorDetails?.type === 'TIMEOUT') {
+          userMessage = `${userMessage} - 请检查网络连接`
+        } else if (errorDetails?.type === 'API') {
+          userMessage = `${userMessage} - AI 服务暂时不可用`
+        }
+        
+        ElMessage.error(userMessage)
         return
       }
 
-      // 清理可能的代码块包裹（```groovy / ```）
       let content = res.content.replace(/^```(?:groovy|jenkinsfile)?\s*/, '').replace(/\s*```$/, '').trim()
 
       generatedContent.value = content
 
-      // 保存到历史记录
-      appStore.addToHistory({
-        type: 'jenkinsfile',
-        title: `Jenkinsfile - ${selectedTemplate.value.name}`,
-        content,
-        result: content
-      })
+      saveJenkinsfile(selectedTemplate.value.name, content, false)
 
       ElMessage.success('Jenkinsfile 生成成功!')
     } catch (error) {
-      console.error('生成 Jenkinsfile 出错:', error)
-      ElMessage.error('生成失败，请重试')
+      const { userMessage, details } = analyzeError(error)
+      
+      console.error('[JenkinsfileView] 生成过程中发生错误:', {
+        error: error.message,
+        details
+      })
+      
+      ElMessage.error(formatUserMessage(error, '生成失败，请重试'))
     } finally {
       generating.value = false
     }
   }
 
-  const copyToClipboard = async () => {
-    try {
-      await navigator.clipboard.writeText(generatedContent.value)
-      ElMessage.success('已复制到剪贴板')
-    } catch (error) {
-      ElMessage.error('复制失败')
-    }
+  const handleCopy = () => {
+    copyToClipboard(generatedContent.value)
   }
 
-  const downloadFile = () => {
-    const blob = new Blob([generatedContent.value], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'Jenkinsfile'
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    ElMessage.success('文件下载成功')
+  const handleDownload = () => {
+    downloadFile(generatedContent.value, 'Jenkinsfile')
   }
 
   const resetForm = () => {
@@ -337,69 +341,10 @@
 </script>
 
 <style scoped>
-  .page-container {
-    min-height: 100vh;
-    background-color: #f5f7fa;
-  }
-
-  .page-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 40px 20px;
-    margin-bottom: 32px;
-  }
-
-  .page-title {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
-
-  .title-icon {
-    font-size: 32px;
-    color: white;
-  }
-
-  .page-title h1 {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 600;
-    color: white;
-  }
-
-  .page-subtitle {
-    margin: 0;
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.9);
-    margin-left: 48px;
-  }
-
-  .page-content {
-    padding: 0 20px 40px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .content-card {
-    border-radius: 12px;
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  }
+  @import '@/assets/page-styles.css';
 
   .template-card {
     margin-bottom: 24px;
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .card-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #303133;
   }
 
   .category-tabs {
@@ -449,92 +394,21 @@
     height: fit-content;
   }
 
-  .action-buttons {
+  .jenkins-action-buttons {
     margin-top: 24px;
-    display: flex;
-    gap: 12px;
   }
 
   .result-card {
     height: calc(100vh - 200px);
   }
 
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
-
-  @media (min-width: 1400px) {
-    .page-header {
-      padding: 48px 40px;
-    }
-
-    .page-content {
-      padding: 0 40px 48px;
-    }
-  }
-
   @media (max-width: 1024px) {
-    .page-header {
-      padding: 32px 15px;
-      margin-bottom: 24px;
-    }
-
-    .page-title {
-      gap: 12px;
-    }
-
-    .title-icon {
-      font-size: 28px;
-    }
-
-    .page-title h1 {
-      font-size: 24px;
-    }
-
-    .page-subtitle {
-      font-size: 14px;
-      margin-left: 40px;
-    }
-
-    .page-content {
-      padding: 0 15px 32px;
-    }
-
     .result-card {
       height: calc(100vh - 220px);
     }
   }
 
   @media (max-width: 768px) {
-    .page-header {
-      padding: 24px 10px;
-      margin-bottom: 20px;
-    }
-
-    .page-title {
-      gap: 10px;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .title-icon {
-      font-size: 24px;
-    }
-
-    .page-title h1 {
-      font-size: 20px;
-    }
-
-    .page-subtitle {
-      font-size: 13px;
-      margin-left: 0;
-    }
-
-    .page-content {
-      padding: 0 10px 24px;
-    }
-
     .template-list {
       max-height: 150px;
     }
@@ -542,36 +416,9 @@
     .result-card {
       height: calc(100vh - 240px);
     }
-
-    .action-buttons {
-      flex-direction: column;
-    }
-
-    .card-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-    }
   }
 
   :global(html.dark) {
-    & .page-container {
-      background-color: var(--el-bg-color-page);
-    }
-
-    & .page-header {
-      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
-    }
-
-    & .content-card {
-      background-color: var(--el-bg-color);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    & .card-title {
-      color: var(--el-text-color-primary);
-    }
-
     & .template-item {
       border-color: var(--el-border-color);
       background-color: var(--el-bg-color);
