@@ -200,8 +200,10 @@
     import { Clock, Refresh, Delete, View, Edit, Check, Search } from '@element-plus/icons-vue'
     import MonacoEditor from '@/components/MonacoEditor.vue'
     import { useAppStore } from '@/stores/app'
+    import { useHistory } from '@/composables/useHistory'
 
     const appStore = useAppStore()
+    const { formatDate, getTagType, getTypeLabel, getEditorLanguage } = useHistory()
 
     const filterType = ref('all')
     const searchKeyword = ref('')
@@ -246,22 +248,7 @@
     return filteredHistory.value.slice(start, end)
     })
 
-    /**
-    * 格式化日期字符串
-    * @param {string} dateString - 原始日期字符串（ISO格式）
-    * @returns {string} 格式化后的本地日期字符串
-    */
-    const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    })
-    }
+
 
     const refreshHistory = () => {
     appStore.loadHistory(true)
@@ -362,50 +349,7 @@
     currentPage.value = page
     }
 
-    const getTagType = (type) => {
-      switch (type) {
-        case 'jenkinsfile':
-          return 'primary'
-        case 'dockerfile':
-          return 'success'
-        case 'billing':
-          return 'warning'
-        case 'log':
-          return 'info'
-        default:
-          return 'info'
-      }
-    }
 
-    const getTypeLabel = (type) => {
-      switch (type) {
-        case 'jenkinsfile':
-          return 'Jenkinsfile'
-        case 'dockerfile':
-          return 'Dockerfile'
-        case 'billing':
-          return '账单'
-        case 'log':
-          return '日志'
-        default:
-          return type
-      }
-    }
-
-    const getEditorLanguage = (type) => {
-      switch (type) {
-        case 'jenkinsfile':
-          return 'groovy'
-        case 'dockerfile':
-          return 'dockerfile'
-        case 'billing':
-          return 'json'
-        case 'log':
-          return 'plaintext'
-        default:
-          return 'plaintext'
-      }
-    }
 
     onMounted(() => {
     appStore.loadHistory()

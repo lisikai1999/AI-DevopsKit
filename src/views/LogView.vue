@@ -77,9 +77,9 @@
   import { Failed, Search } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import { aiService } from '@/services/ai-service'
-  import { useAppStore } from '@/stores/app'
+  import { useHistory } from '@/composables/useHistory'
 
-  const appStore = useAppStore()
+  const { saveLogTranslation } = useHistory()
 
   const logContent = ref('')
   const translating = ref(false)
@@ -118,9 +118,7 @@
   }
 
   const saveToHistory = () => {
-    if (!result.value) return
-    appStore.addToHistory({ type: 'log', title: '日志翻译', content: logContent.value, result: JSON.stringify(result.value) })
-    ElMessage.success('已保存到历史')
+    saveLogTranslation(result.value, logContent.value)
   }
 </script>
 

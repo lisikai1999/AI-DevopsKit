@@ -131,7 +131,9 @@
   import { aiService } from '@/services/ai-service'
   import { Tools, Mic, CopyDocument, Download } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
-  import { useAppStore } from '@/stores/app'
+  import { useHistory } from '@/composables/useHistory'
+
+  const { saveJenkinsfile } = useHistory()
 
   // 内联模板数据
   const jenkinsfileTemplates = {
@@ -205,8 +207,6 @@
     ]
   }
 
-  const appStore = useAppStore()
-
   const selectedCategory = ref('basic')
   const selectedTemplate = ref(null)
   const formData = ref({})
@@ -267,12 +267,7 @@
       generatedContent.value = content
 
       // 保存到历史记录
-      appStore.addToHistory({
-        type: 'jenkinsfile',
-        title: `Jenkinsfile - ${selectedTemplate.value.name}`,
-        content,
-        result: content
-      })
+      saveJenkinsfile(selectedTemplate.value.name, content, false)
 
       ElMessage.success('Jenkinsfile 生成成功!')
     } catch (error) {

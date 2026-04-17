@@ -92,9 +92,9 @@ import { ElMessage } from 'element-plus'
 import { TrendCharts, Search } from '@element-plus/icons-vue'
 import EChartsWrapper from '@/components/EChartsWrapper.vue'
 import { aiService } from '@/services/ai-service'
-import { useAppStore } from '@/stores/app'
+import { useHistory } from '@/composables/useHistory'
 
-const appStore = useAppStore()
+const { saveBillingAnalysis } = useHistory()
 
 const csvContent = ref('')
 const analyzing = ref(false)
@@ -159,9 +159,7 @@ const analyzeBilling = async () => {
 }
 
 const saveToHistory = () => {
-  if (!result.value) return
-  appStore.addToHistory({ type: 'billing', title: `账单分析 - ${result.value.summary.period}`, content: csvContent.value, result: JSON.stringify(result.value) })
-  ElMessage.success('已保存到历史')
+  saveBillingAnalysis(result.value, csvContent.value)
 }
 </script>
 
