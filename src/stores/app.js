@@ -63,6 +63,23 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
   }
   
+  /**
+   * 更新指定id的历史记录
+   * @param {string} id - 历史记录的id
+   * @param {Partial<HistoryItem>} updates - 更新的内容
+   */
+  const updateHistoryItem = (id, updates) => {
+    const index = history.value.findIndex(item => item.id === id)
+    if (index !== -1) {
+      history.value[index] = {
+        ...history.value[index],
+        ...updates,
+        createdAt: new Date().toISOString()
+      }
+      localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
+    }
+  }
+  
   return {
     isDarkMode,
     history,
@@ -70,6 +87,7 @@ export const useAppStore = defineStore('app', () => {
     addToHistory,
     loadHistory,
     clearHistory,
-    deleteHistoryItem
+    deleteHistoryItem,
+    updateHistoryItem
   }
 })
