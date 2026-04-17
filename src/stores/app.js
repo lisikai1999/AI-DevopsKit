@@ -16,6 +16,7 @@ export const useAppStore = defineStore('app', () => {
   const isDarkMode = ref(false)
   // 移除TS的类型注解，直接初始化空数组
   const history = ref([])
+  const historyLoaded = ref(false)
   
   const toggleDarkMode = () => {
     isDarkMode.value = !isDarkMode.value
@@ -42,11 +43,15 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
   }
   
-  const loadHistory = () => {
+  const loadHistory = (force = false) => {
+    if (!force && historyLoaded.value) {
+      return
+    }
     const saved = localStorage.getItem('ai-devops-history')
     if (saved) {
       history.value = JSON.parse(saved)
     }
+    historyLoaded.value = true
   }
   
   const clearHistory = () => {

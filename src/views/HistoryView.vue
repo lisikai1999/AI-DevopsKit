@@ -264,7 +264,7 @@
     }
 
     const refreshHistory = () => {
-    appStore.loadHistory()
+    appStore.loadHistory(true)
     ElMessage.success('历史记录已刷新')
     }
 
