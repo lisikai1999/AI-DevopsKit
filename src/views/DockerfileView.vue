@@ -123,14 +123,14 @@
 <script setup>
   import { ref, computed } from 'vue'
   import { ElMessage } from 'element-plus'
-  import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import EChartsWrapper from '@/components/EChartsWrapper.vue'
   import { Document, Search, CopyDocument, Download } from '@element-plus/icons-vue'
   import { sampleDockerfiles } from '@/utils/dockerfile-analyzer'
+  import { useHistory } from '@/composables/useHistory'
 
-  const appStore = useAppStore()
+  const { saveDockerfileAnalysis } = useHistory()
 
   const dockerfileContent = ref('')
   const analysisResult = ref(null)
@@ -224,12 +224,7 @@
       analysisResult.value = JSON.parse(res.content)
       
       // 保存到历史记录
-      appStore.addToHistory({
-        type: 'dockerfile',
-        title: `Dockerfile 分析 - 得分 ${analysisResult.value.score}`,
-        content: dockerfileContent.value,
-        result: JSON.stringify(analysisResult.value, null, 2)
-      })
+      saveDockerfileAnalysis(analysisResult.value, dockerfileContent.value, false)
       
       ElMessage.success(`分析完成! 得分: ${analysisResult.value.score}/100`)
     } catch (error) {
