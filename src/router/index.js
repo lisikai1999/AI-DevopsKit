@@ -12,7 +12,7 @@ const router = createRouter({
     {
       path: '/jenkinsfile',
       name: 'jenkinsfile',
-      component: () => import('../views/JenkinsfileView.vue'),
+      redirect: '/cicd',
     },
     {
       path: '/cicd',
