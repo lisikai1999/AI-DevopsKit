@@ -15,6 +15,11 @@ const router = createRouter({
       component: () => import('../views/JenkinsfileView.vue'),
     },
     {
+      path: '/cicd',
+      name: 'cicd',
+      component: () => import('../views/CICDView.vue'),
+    },
+    {
       path: '/dockerfile',
       name: 'dockerfile',
       component: () => import('../views/DockerfileView.vue'),

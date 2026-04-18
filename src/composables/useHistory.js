@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 /**
  * 历史记录类型
- * @typedef {'jenkinsfile' | 'dockerfile' | 'billing' | 'log'} HistoryType
+ * @typedef {'jenkinsfile' | 'dockerfile' | 'billing' | 'log' | 'cicd'} HistoryType
  */
 
 /**
@@ -32,6 +32,8 @@ export const getTagType = (type) => {
       return 'warning'
     case 'log':
       return 'info'
+    case 'cicd':
+      return 'danger'
     default:
       return 'info'
   }
@@ -52,6 +54,8 @@ export const getTypeLabel = (type) => {
       return '账单'
     case 'log':
       return '日志'
+    case 'cicd':
+      return 'CI/CD'
     default:
       return type
   }
@@ -72,6 +76,8 @@ export const getEditorLanguage = (type) => {
       return 'json'
     case 'log':
       return 'plaintext'
+    case 'cicd':
+      return 'yaml'
     default:
       return 'plaintext'
   }
@@ -203,6 +209,23 @@ export const useHistory = () => {
     })
   }
 
+  /**
+   * 保存 CI/CD 配置到历史记录
+   * @param {string} platform - 平台名称（如 'Jenkins', 'GitLab CI/CD'）
+   * @param {string} templateName - 模板名称
+   * @param {string} content - 配置内容
+   * @param {boolean} [showMessage=true] - 是否显示成功消息
+   */
+  const saveCICDConfig = (platform, templateName, content, showMessage = true) => {
+    saveToHistory({
+      type: 'cicd',
+      title: `${platform} - ${templateName}`,
+      content,
+      result: content,
+      showMessage
+    })
+  }
+
   return {
     // 基础方法
     saveToHistory,
@@ -212,6 +235,7 @@ export const useHistory = () => {
     saveDockerfileAnalysis,
     saveBillingAnalysis,
     saveLogTranslation,
+    saveCICDConfig,
     
     // 工具函数
     getTagType,

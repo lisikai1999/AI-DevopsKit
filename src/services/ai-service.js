@@ -155,6 +155,72 @@ ${response.content}
   }
 
   /**
+   * 生成 CI/CD 配置文件
+   * @param {string} platformId - 平台ID (jenkins, gitlab, github, azure)
+   * @param {string} platformName - 平台名称
+   * @param {string} template - 模板内容
+   * @param {Record<string, any>} parameters - 生成参数
+   * @param {string} templateId - 模板ID
+   * @returns {Promise<AIResponse>} AI响应结果
+   */
+  async generateCICDConfig(platformId, platformName, template, parameters, templateId = 'sample') {
+    if (this.#isMockMode) {
+      return this.#mockCICDResponse(platformId, templateId, parameters)
+    }
+
+    try {
+      const platformInfo = {
+        jenkins: {
+          name: 'Jenkins',
+          fileType: 'Jenkinsfile',
+          language: 'Groovy'
+        },
+        gitlab: {
+          name: 'GitLab CI/CD',
+          fileType: '.gitlab-ci.yml',
+          language: 'YAML'
+        },
+        github: {
+          name: 'GitHub Actions',
+          fileType: 'workflow.yml',
+          language: 'YAML'
+        },
+        azure: {
+          name: 'Azure DevOps',
+          fileType: 'azure-pipelines.yml',
+          language: 'YAML'
+        }
+      }
+
+      const info = platformInfo[platformId] || platformInfo.jenkins
+
+      const prompt = `请根据以下模板和参数生成一个专业的 ${info.name} 配置文件（${info.fileType}）：
+
+模板：
+${template}
+
+参数：
+${JSON.stringify(parameters, null, 2)}
+
+请生成一个完整的、可用的 ${info.fileType} 配置文件，包含：
+1. 合理的 stages/jobs 配置
+2. 适当的变量和环境设置
+3. 错误处理和最佳实践
+4. 清晰的注释
+
+只返回 ${info.language} 格式的配置内容，不要包含其他解释。`
+
+      const response = await this.#callAI(prompt)
+      return response
+    } catch (error) {
+      return this.#createErrorResponse(
+        error,
+        `生成 CI/CD 配置失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接和 API 配置后重试'}`
+      )
+    }
+  }
+
+  /**
    * 创建错误响应对象
    * @private
    * @param {Error} error - 原始错误
@@ -372,6 +438,373 @@ ${response.content}
       success: true,
       content
     };
+  }
+
+  /**
+   * 模拟 CI/CD 配置生成的响应（私有）
+   * @param {string} platformId - 平台ID
+   * @param {string} templateId - 模板ID
+   * @param {Record<string, any>} parameters - 生成参数
+   * @returns {AIResponse} 模拟响应结果
+   */
+  #mockCICDResponse(platformId, templateId, parameters) {
+    const getResponse = () => {
+      switch (platformId) {
+        case 'gitlab':
+          if (templateId === 'gitlab-simple' || templateId === 'simple') {
+            return `stages:
+  - build
+  - test
+
+build:
+  stage: build
+  image: node:16
+  script:
+    - npm install
+    - ${parameters.buildCommand || "npm run build"}
+  artifacts:
+    paths:
+      - dist/
+
+test:
+  stage: test
+  image: node:16
+  script:
+    - npm install
+    - ${parameters.testCommand || "npm test"}
+`
+          } else if (templateId === 'gitlab-docker' || templateId === 'docker') {
+            return `variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+  IMAGE_TAG: \$CI_REGISTRY_IMAGE/${parameters.imageName || "myapp"}:\$CI_COMMIT_REF_SLUG
+
+stages:
+  - build
+  - test
+  - build_image
+  - deploy_${parameters.deployStage || "dev"}
+
+build:
+  stage: build
+  image: node:16
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+test:
+  stage: test
+  image: node:16
+  script:
+    - npm install
+    - npm test
+
+build_image:
+  stage: build_image
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u \$CI_REGISTRY_USER -p \$CI_REGISTRY_PASSWORD \$CI_REGISTRY
+  script:
+    - docker build -t \$IMAGE_TAG .
+    - docker push \$IMAGE_TAG
+  needs:
+    - build
+
+deploy_${parameters.deployStage || "dev"}:
+  stage: deploy_${parameters.deployStage || "dev"}
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u \$CI_REGISTRY_USER -p \$CI_REGISTRY_PASSWORD \$CI_REGISTRY
+  script:
+    - docker pull \$IMAGE_TAG
+    - echo "Deploying to ${parameters.deployStage || "dev"} environment"
+  environment:
+    name: ${parameters.deployStage || "dev"}
+  only:
+    - main
+  needs:
+    - build_image
+`
+          }
+          break
+
+        case 'github':
+          if (templateId === 'github-simple' || templateId === 'simple') {
+            return `name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [${parameters.nodeVersion || "18.x"}]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js \${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: \${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build
+      run: ${parameters.buildCommand || "npm run build"}
+      
+    - name: Test
+      run: ${parameters.testCommand || "npm test"}
+`
+          } else if (templateId === 'github-docker' || templateId === 'docker') {
+            return `name: Docker CI/CD
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: \${{ github.repository }}/${parameters.imageName || "myapp"}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build
+        run: npm run build
+        
+      - name: Test
+        run: npm test
+
+  build-and-push-image:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: \${{ env.REGISTRY }}
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: \${{ env.REGISTRY }}/\${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=${parameters.imageName || "myapp"}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: \${{ steps.meta.outputs.tags }}
+          labels: \${{ steps.meta.outputs.labels }}
+`
+          }
+          break
+
+        case 'azure':
+          if (templateId === 'azure-simple' || templateId === 'simple') {
+            return `trigger:
+  - main
+  - develop
+
+pr:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  nodeVersion: '${parameters.nodeVersion || "18.x"}'
+
+stages:
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: Build
+        displayName: 'Build Job'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '\$(nodeVersion)'
+            displayName: 'Install Node.js'
+
+          - script: |
+              npm ci
+              ${parameters.buildCommand || "npm run build"}
+            displayName: 'npm install and build'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: 'dist'
+              ArtifactName: 'drop'
+            displayName: 'Publish artifacts'
+`
+          } else if (templateId === 'azure-docker' || templateId === 'docker') {
+            return `trigger:
+  - main
+
+variables:
+  imageRepository: '${parameters.imageName || "myapp"}'
+  containerRegistry: '${parameters.acrName || "mycontainerregistry"}.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '\$(Build.BuildId)'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: \$(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: \$(imageRepository)
+        dockerfile: \$(dockerfilePath)
+        containerRegistry: 'dockerRegistryServiceConnection'
+        tags: |
+          \$(tag)
+          latest
+
+- stage: Deploy
+  displayName: Deploy to ACI
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: Deploy
+    displayName: Deploy to Azure Container Instances
+    pool:
+      vmImage: \$(vmImageName)
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Deploy to ACI'
+      inputs:
+        azureSubscription: 'azureServiceConnection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az container create \
+            --resource-group ${parameters.resourceGroup || "myResourceGroup"} \
+            --name ${parameters.imageName || "myapp"}-container \
+            --image \$(containerRegistry)/\$(imageRepository):\$(tag) \
+            --cpu 1 \
+            --memory 1.5 \
+            --ports 80 443 \
+            --dns-name-label ${parameters.imageName || "myapp"}-\$(Build.BuildId) \
+            --registry-username \$(acrUsername) \
+            --registry-password \$(acrPassword)
+`
+          }
+          break
+
+        case 'jenkins':
+        default:
+          if (templateId === 'jenkins-simple' || templateId === 'simple' || templateId === 'basic') {
+            return `pipeline {
+    agent any
+    
+    tools {
+        maven 'Maven 3.8.6'
+        jdk 'JDK 11'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: '${parameters.repoUrl || "https://github.com/example/repo.git"}'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh '${parameters.buildCommand || "mvn clean package"}'
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh '${parameters.testCommand || "mvn test"}'
+            }
+        }
+    }
+}`
+          } else {
+            return `pipeline {
+    agent any
+    
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t docker.io/${parameters.imageName || "myapp"}:latest .'
+            }
+        }
+        
+        stage('Push Image') {
+            steps {
+                sh 'docker push docker.io/${parameters.imageName || "myapp"}:latest'
+            }
+        }
+    }
+}`
+          }
+      }
+      return `# Default configuration for ${platformId}`
+    }
+
+    const content = getResponse()
+    return {
+      success: true,
+      content
+    }
   }
 
   /**
