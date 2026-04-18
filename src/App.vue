@@ -18,10 +18,20 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="/jenkinsfile">
-            <el-icon><Tools /></el-icon>
-            <span>Jenkinsfile 生成器</span>
-          </el-menu-item>
+          <el-sub-menu index="cicd-menu">
+            <template #title>
+              <el-icon><Tools /></el-icon>
+              <span>CI/CD 工具</span>
+            </template>
+            <el-menu-item index="/cicd">
+              <el-icon><Edit /></el-icon>
+              <span>CI/CD 生成器</span>
+            </el-menu-item>
+            <el-menu-item index="/cicd-scanner">
+              <el-icon><Search /></el-icon>
+              <span>CI/CD 配置诊断</span>
+            </el-menu-item>
+          </el-sub-menu>
           <el-menu-item index="/dockerfile">
             <el-icon><Document /></el-icon>
             <span>Dockerfile 分析器</span>
@@ -79,7 +89,7 @@
 
 <script setup>
   import { computed, watch, onMounted } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts } from '@element-plus/icons-vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 
@@ -119,6 +129,9 @@
       }
     }
     applyDarkMode(appStore.isDarkMode)
+    
+    // 应用启动时加载历史记录
+    appStore.loadHistory()
   })
 </script>
 
