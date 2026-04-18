@@ -18,9 +18,9 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="/jenkinsfile">
+          <el-menu-item index="/cicd">
             <el-icon><Tools /></el-icon>
-            <span>Jenkinsfile 生成器</span>
+            <span>CI/CD 生成器</span>
           </el-menu-item>
           <el-menu-item index="/dockerfile">
             <el-icon><Document /></el-icon>
@@ -119,6 +119,9 @@
       }
     }
     applyDarkMode(appStore.isDarkMode)
+    
+    // 应用启动时加载历史记录
+    appStore.loadHistory()
   })
 </script>
 
