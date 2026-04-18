@@ -20,6 +20,11 @@ const router = createRouter({
       component: () => import('../views/CICDView.vue'),
     },
     {
+      path: '/cicd-scanner',
+      name: 'cicd-scanner',
+      component: () => import('../views/CICDScannerView.vue'),
+    },
+    {
       path: '/dockerfile',
       name: 'dockerfile',
       component: () => import('../views/DockerfileView.vue'),

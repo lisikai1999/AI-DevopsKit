@@ -8,12 +8,16 @@
             <el-icon class="hero-icon"><Cpu /></el-icon>
             AI DevOps 助手
           </h1>
-          <p class="hero-subtitle">轻量、开源的 AI 辅助 DevOps 工具，支持多平台 CI/CD 配置生成 + Dockerfile 分析</p>
+          <p class="hero-subtitle">轻量、开源的 AI 辅助 DevOps 工具，支持多平台 CI/CD 配置生成、智能诊断 + Dockerfile 分析</p>
           
           <div class="hero-actions">
             <el-button type="primary" size="large" @click="$router.push('/cicd')">
               <el-icon><Tools /></el-icon>
               开始生成 CI/CD 配置
+            </el-button>
+            <el-button size="large" @click="$router.push('/cicd-scanner')">
+              <el-icon><Search /></el-icon>
+              诊断现有 CI/CD 配置
             </el-button>
             <el-button size="large" @click="$router.push('/dockerfile')">
               <el-icon><Document /></el-icon>
@@ -26,7 +30,7 @@
       <!-- Features Section -->
       <el-main class="features-section">
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-card class="feature-card" shadow="hover">
               <div class="feature-icon">
                 <el-icon size="48"><Tools /></el-icon>
@@ -39,7 +43,20 @@
             </el-card>
           </el-col>
           
-          <el-col :span="8">
+          <el-col :span="6">
+            <el-card class="feature-card" shadow="hover">
+              <div class="feature-icon">
+                <el-icon size="48"><Search /></el-icon>
+              </div>
+              <h3>CI/CD 配置智能诊断</h3>
+              <p>粘贴现有配置 → 检测缓存/超时/并行/安全问题 + 直接给出修复代码</p>
+              <el-button type="text" @click="$router.push('/cicd-scanner')">
+                立即体验 →
+              </el-button>
+            </el-card>
+          </el-col>
+          
+          <el-col :span="6">
             <el-card class="feature-card" shadow="hover">
               <div class="feature-icon">
                 <el-icon size="48"><Document /></el-icon>
@@ -52,7 +69,7 @@
             </el-card>
           </el-col>
           
-          <el-col :span="8">
+          <el-col :span="6">
             <el-card class="feature-card" shadow="hover">
               <div class="feature-icon">
                 <el-icon size="48"><Clock /></el-icon>
@@ -130,7 +147,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Cpu, Tools, Document, Clock } from '@element-plus/icons-vue'
+import { Cpu, Tools, Document, Clock, Search } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { aiService } from '@/services/ai-service'
 

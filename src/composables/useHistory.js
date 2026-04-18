@@ -3,7 +3,7 @@ import { ElMessage } from 'element-plus'
 
 /**
  * 历史记录类型
- * @typedef {'jenkinsfile' | 'dockerfile' | 'billing' | 'log' | 'cicd'} HistoryType
+ * @typedef {'jenkinsfile' | 'dockerfile' | 'billing' | 'log' | 'cicd' | 'cicd-scan'} HistoryType
  */
 
 /**
@@ -34,6 +34,8 @@ export const getTagType = (type) => {
       return 'info'
     case 'cicd':
       return 'danger'
+    case 'cicd-scan':
+      return 'warning'
     default:
       return 'info'
   }
@@ -56,6 +58,8 @@ export const getTypeLabel = (type) => {
       return '日志'
     case 'cicd':
       return 'CI/CD'
+    case 'cicd-scan':
+      return 'CI/CD 诊断'
     default:
       return type
   }
@@ -226,6 +230,28 @@ export const useHistory = () => {
     })
   }
 
+  /**
+   * 保存 CI/CD 诊断结果到历史记录
+   * @param {Object} analysisResult - 诊断结果对象
+   * @param {number} analysisResult.score - 得分
+   * @param {Array} analysisResult.issues - 问题列表
+   * @param {Array} analysisResult.suggestions - 建议列表
+   * @param {string} analysisResult.fixedContent - 修复后的内容
+   * @param {string} platform - 平台类型
+   * @param {string} originalContent - 原始配置内容
+   * @param {boolean} [showMessage=true] - 是否显示成功消息
+   */
+  const saveCICDScan = (analysisResult, platform, originalContent, showMessage = true) => {
+    if (!analysisResult) return
+    saveToHistory({
+      type: 'cicd-scan',
+      title: `CI/CD 诊断 - ${platform} - 得分 ${analysisResult.score}`,
+      content: originalContent,
+      result: analysisResult,
+      showMessage
+    })
+  }
+
   return {
     // 基础方法
     saveToHistory,
@@ -236,6 +262,7 @@ export const useHistory = () => {
     saveBillingAnalysis,
     saveLogTranslation,
     saveCICDConfig,
+    saveCICDScan,
     
     // 工具函数
     getTagType,
