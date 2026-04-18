@@ -201,18 +201,16 @@ ${response.content}
         templateType = 'Docker 构建部署'
       }
 
-      const prompt = `请根据以下平台、模板类型和参数生成一个专业的 ${info.name} 配置文件（${info.fileType}）：
+      const prompt = `请根据以下模板类型和参数生成一个专业的 ${info.fileType}：
 
-平台：${info.name}
 模板类型：${templateType}
 参数：${JSON.stringify(parameters, null, 2)}
 
-请生成一个完整的、可用的 ${info.fileType} 配置文件，包含：
-1. 完整的 pipeline/workflow 结构
-2. 合理的 stages/jobs 配置
-3. 适当的变量和环境设置
-4. 错误处理和最佳实践
-5. 清晰的注释
+请生成一个完整的、可用的 ${info.fileType}，包含：
+1. 完整的 pipeline 结构
+2. 合理的 stages 配置
+3. 错误处理
+4. 清晰的注释
 
 只返回 ${info.language} 格式的配置内容，不要包含其他解释。`
 
@@ -295,7 +293,7 @@ ${response.content}
             'Authorization': `Bearer ${this.#apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 60000
+          timeout: 120000
         }
       )
 
