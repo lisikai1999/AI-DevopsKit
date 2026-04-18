@@ -194,19 +194,25 @@ ${response.content}
 
       const info = platformInfo[platformId] || platformInfo.jenkins
 
-      const prompt = `请根据以下模板和参数生成一个专业的 ${info.name} 配置文件（${info.fileType}）：
+      let templateType = 'standard'
+      if (templateId.includes('simple') || templateId.includes('basic')) {
+        templateType = '简单构建'
+      } else if (templateId.includes('docker')) {
+        templateType = 'Docker 构建部署'
+      }
 
-模板：
-${template}
+      const prompt = `请根据以下平台、模板类型和参数生成一个专业的 ${info.name} 配置文件（${info.fileType}）：
 
-参数：
-${JSON.stringify(parameters, null, 2)}
+平台：${info.name}
+模板类型：${templateType}
+参数：${JSON.stringify(parameters, null, 2)}
 
 请生成一个完整的、可用的 ${info.fileType} 配置文件，包含：
-1. 合理的 stages/jobs 配置
-2. 适当的变量和环境设置
-3. 错误处理和最佳实践
-4. 清晰的注释
+1. 完整的 pipeline/workflow 结构
+2. 合理的 stages/jobs 配置
+3. 适当的变量和环境设置
+4. 错误处理和最佳实践
+5. 清晰的注释
 
 只返回 ${info.language} 格式的配置内容，不要包含其他解释。`
 
