@@ -200,8 +200,10 @@
     import { Clock, Refresh, Delete, View, Edit, Check, Search } from '@element-plus/icons-vue'
     import MonacoEditor from '@/components/MonacoEditor.vue'
     import { useAppStore } from '@/stores/app'
+    import { useHistory } from '@/composables/useHistory'
 
     const appStore = useAppStore()
+    const { formatDate, getTagType, getTypeLabel, getEditorLanguage } = useHistory()
 
     const filterType = ref('all')
     const searchKeyword = ref('')
@@ -246,25 +248,10 @@
     return filteredHistory.value.slice(start, end)
     })
 
-    /**
-    * 格式化日期字符串
-    * @param {string} dateString - 原始日期字符串（ISO格式）
-    * @returns {string} 格式化后的本地日期字符串
-    */
-    const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-    })
-    }
+
 
     const refreshHistory = () => {
-    appStore.loadHistory()
+    appStore.loadHistory(true)
     ElMessage.success('历史记录已刷新')
     }
 
@@ -312,17 +299,9 @@
     if (!selectedHistory.value) return
     
     try {
-        // 更新内容
-        const index = history.value.findIndex(item => item.id === selectedHistory.value.id)
-        if (index !== -1) {
-        history.value[index] = {
-            ...selectedHistory.value,
-            createdAt: new Date().toISOString() // 更新修改时间
-        }
-        
-        // 保存到 localStorage
-        localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
-        }
+        appStore.updateHistoryItem(selectedHistory.value.id, {
+            content: selectedHistory.value.content
+        })
         
         isEditMode.value = false
         ElMessage.success('保存成功')
@@ -370,48 +349,7 @@
     currentPage.value = page
     }
 
-    const getTagType = (type) => {
-      switch (type) {
-        case 'jenkinsfile':
-          return 'primary'
-        case 'dockerfile':
-          return 'success'
-        case 'billing':
-          return 'warning'
-        case 'log':
-          return 'info'
-        default:
-          return 'info'
-      }
-    }
 
-    const getTypeLabel = (type) => {
-      switch (type) {
-        case 'jenkinsfile':
-          return 'Jenkinsfile'
-        case 'dockerfile':
-          return 'Dockerfile'
-        case 'billing':
-          return '账单'
-        case 'log':
-          return '日志'
-        default:
-          return type
-      }
-    }
-
-    const getEditorLanguage = (type) => {
-      switch (type) {
-        case 'jenkinsfile':
-          return 'groovy'
-        case 'dockerfile':
-          return 'dockerfile'
-        case 'billing':
-          return 'json'
-        default:
-          return 'plaintext'
-      }
-    }
 
     onMounted(() => {
     appStore.loadHistory()
@@ -419,71 +357,7 @@
 </script>
 
 <style scoped>
-  .page-container {
-    min-height: 100vh;
-    background-color: #f5f7fa;
-  }
-
-  .page-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 40px 20px;
-    margin-bottom: 32px;
-  }
-
-  .page-title {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 12px;
-  }
-
-  .title-icon {
-    font-size: 32px;
-    color: white;
-  }
-
-  .page-title h1 {
-    margin: 0;
-    font-size: 28px;
-    font-weight: 600;
-    color: white;
-  }
-
-  .page-subtitle {
-    margin: 0;
-    font-size: 16px;
-    color: rgba(255, 255, 255, 0.9);
-    margin-left: 48px;
-  }
-
-  .page-content {
-    padding: 0 20px 40px;
-    max-width: 1400px;
-    margin: 0 auto;
-  }
-
-  .content-card {
-    border-radius: 12px;
-    border: none;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .card-title {
-    font-size: 16px;
-    font-weight: 600;
-    color: #303133;
-  }
-
-  .header-actions {
-    display: flex;
-    gap: 8px;
-  }
+  @import '@/assets/page-styles.css';
 
   .filters {
     margin-bottom: 24px;
@@ -523,21 +397,6 @@
     padding: 8px 0;
   }
 
-  .section {
-    margin-bottom: 24px;
-  }
-
-  .section:last-child {
-    margin-bottom: 0;
-  }
-
-  .section-title {
-    margin: 0 0 12px 0;
-    font-size: 15px;
-    font-weight: 600;
-    color: #303133;
-  }
-
   .result-section {
     margin-top: 24px;
   }
@@ -559,78 +418,7 @@
     background-color: #f5f7fa;
   }
 
-  @media (min-width: 1400px) {
-    .page-header {
-      padding: 48px 40px;
-    }
-
-    .page-content {
-      padding: 0 40px 48px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    .page-header {
-      padding: 32px 15px;
-      margin-bottom: 24px;
-    }
-
-    .page-title {
-      gap: 12px;
-    }
-
-    .title-icon {
-      font-size: 28px;
-    }
-
-    .page-title h1 {
-      font-size: 24px;
-    }
-
-    .page-subtitle {
-      font-size: 14px;
-      margin-left: 40px;
-    }
-
-    .page-content {
-      padding: 0 15px 32px;
-    }
-  }
-
   @media (max-width: 768px) {
-    .page-header {
-      padding: 24px 10px;
-      margin-bottom: 20px;
-    }
-
-    .page-title {
-      gap: 10px;
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .title-icon {
-      font-size: 24px;
-    }
-
-    .page-title h1 {
-      font-size: 20px;
-    }
-
-    .page-subtitle {
-      font-size: 13px;
-      margin-left: 0;
-    }
-
-    .page-content {
-      padding: 0 10px 24px;
-    }
-
-    .header-actions {
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
     .filters {
       flex-direction: column;
       align-items: stretch;
@@ -649,38 +437,11 @@
       justify-content: center;
       flex-wrap: wrap;
     }
-
-    .card-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 12px;
-    }
   }
 
   :global(html.dark) {
-    & .page-container {
-      background-color: var(--el-bg-color-page);
-    }
-
-    & .page-header {
-      background: linear-gradient(135deg, #5468c7 0%, #5a3d8a 100%);
-    }
-
-    & .content-card {
-      background-color: var(--el-bg-color);
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    }
-
-    & .card-title {
-      color: var(--el-text-color-primary);
-    }
-
     & .dialog-date {
       color: var(--el-text-color-secondary);
-    }
-
-    & .section-title {
-      color: var(--el-text-color-primary);
     }
 
     & .dialog-actions {

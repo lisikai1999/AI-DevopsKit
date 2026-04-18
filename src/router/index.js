@@ -12,7 +12,12 @@ const router = createRouter({
     {
       path: '/jenkinsfile',
       name: 'jenkinsfile',
-      component: () => import('../views/JenkinsfileView.vue'),
+      redirect: '/cicd',
+    },
+    {
+      path: '/cicd',
+      name: 'cicd',
+      component: () => import('../views/CICDView.vue'),
     },
     {
       path: '/dockerfile',
@@ -33,11 +38,6 @@ const router = createRouter({
       path: '/history',
       name: 'history',
       component: () => import('../views/HistoryView.vue'),
-    },
-    {
-      path: '/test',
-      name: 'test',
-      component: () => import('../views/Test.vue'),
     },
   ],
 })
