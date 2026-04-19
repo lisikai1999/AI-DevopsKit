@@ -44,6 +44,10 @@
             <el-icon><Failed /></el-icon>
             <span>日志翻译</span>
           </el-menu-item>
+          <el-menu-item index="/workflow">
+            <el-icon><Share /></el-icon>
+            <span>工作流编排</span>
+          </el-menu-item>
           <el-menu-item index="/history">
             <el-icon><Clock /></el-icon>
             <span>历史记录</span>
@@ -89,7 +93,7 @@
 
 <script setup>
   import { computed, watch, onMounted } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search } from '@element-plus/icons-vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search, Share } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 
