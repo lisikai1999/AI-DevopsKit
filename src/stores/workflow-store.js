@@ -177,7 +177,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   function reorderSteps(workflowId, stepOrder) {
     const workflow = getWorkflow(workflowId)
     if (workflow) {
-      const stepMap = new Map(workflow.steps.map(s => [s.id, s])
+      const stepMap = new Map(workflow.steps.map(s => [s.id, s]))
       const newSteps = stepOrder.map(id => stepMap.get(id)).filter(Boolean)
       
       if (newSteps.length === workflow.steps.length) {
