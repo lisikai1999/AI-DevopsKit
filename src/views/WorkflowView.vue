@@ -1048,6 +1048,9 @@ async function runWorkflow(id) {
   try {
     workflowStore.clearExecutionState()
     
+    ElMessage.info('工作流开始执行，请稍候...')
+    activeTab.value = 'execute'
+    
     const result = await workflowStore.executeWorkflow(id)
     
     if (result.success) {
@@ -1055,8 +1058,6 @@ async function runWorkflow(id) {
     } else {
       ElMessage.error(`工作流执行失败: ${result.error}`)
     }
-    
-    activeTab.value = 'execute'
     
   } catch (error) {
     ElMessage.error(`执行失败: ${error.message}`)
