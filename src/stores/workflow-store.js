@@ -30,6 +30,9 @@ export const useWorkflowStore = defineStore('workflow', () => {
       const saved = localStorage.getItem('ai-devops-workflows')
       if (saved) {
         workflows.value = JSON.parse(saved)
+        workflows.value.forEach(workflow => {
+          workflowEngine.registerWorkflow(workflow)
+        })
       }
     } catch (error) {
       console.error('[WorkflowStore] 加载工作流失败:', error)
@@ -48,6 +51,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     try {
       const workflowData = createWorkflowFromTemplate(templateId, customizations)
       workflows.value.push(workflowData)
+      workflowEngine.registerWorkflow(workflowData)
       saveWorkflows()
       return workflowData
     } catch (error) {
@@ -74,6 +78,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
     
     workflows.value.push(workflow)
+    workflowEngine.registerWorkflow(workflow)
     saveWorkflows()
     return workflow
   }
@@ -90,6 +95,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         ...updates,
         updatedAt: new Date().toISOString()
       }
+      workflowEngine.registerWorkflow(workflows.value[index])
       saveWorkflows()
       return workflows.value[index]
     }
@@ -100,6 +106,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     const index = workflows.value.findIndex(w => w.id === id)
     if (index !== -1) {
       workflows.value.splice(index, 1)
+      workflowEngine.deleteWorkflow(id)
       saveWorkflows()
       return true
     }
@@ -129,6 +136,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       }
       workflow.steps.push(step)
       workflow.updatedAt = new Date().toISOString()
+      workflowEngine.registerWorkflow(workflow)
       saveWorkflows()
       return step
     }
@@ -145,6 +153,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           ...updates
         }
         workflow.updatedAt = new Date().toISOString()
+        workflowEngine.registerWorkflow(workflow)
         saveWorkflows()
         return workflow.steps[stepIndex]
       }
@@ -167,6 +176,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
         })
         
         workflow.updatedAt = new Date().toISOString()
+        workflowEngine.registerWorkflow(workflow)
         saveWorkflows()
         return true
       }
@@ -183,6 +193,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       if (newSteps.length === workflow.steps.length) {
         workflow.steps = newSteps
         workflow.updatedAt = new Date().toISOString()
+        workflowEngine.registerWorkflow(workflow)
         saveWorkflows()
         return true
       }
@@ -200,6 +211,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       newWorkflow.updatedAt = new Date().toISOString()
       
       workflows.value.push(newWorkflow)
+      workflowEngine.registerWorkflow(newWorkflow)
       saveWorkflows()
       return newWorkflow
     }
@@ -228,6 +240,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       delete newWorkflow.exportedAt
       
       workflows.value.push(newWorkflow)
+      workflowEngine.registerWorkflow(newWorkflow)
       saveWorkflows()
       return newWorkflow
     } catch (error) {
@@ -245,6 +258,8 @@ export const useWorkflowStore = defineStore('workflow', () => {
     executionLogs.value = []
     
     try {
+      workflowEngine.registerWorkflow(workflow)
+      
       const execution = workflowEngine.createExecution(workflowId, runtimeVariables)
       currentExecution.value = execution
       

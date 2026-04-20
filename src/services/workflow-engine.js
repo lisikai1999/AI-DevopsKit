@@ -127,6 +127,14 @@ export class WorkflowEngine {
     return workflow
   }
 
+  registerWorkflow(workflowData) {
+    const existingWorkflow = this.workflows.get(workflowData.id)
+    if (existingWorkflow) {
+      return this.updateWorkflow(workflowData.id, workflowData)
+    }
+    return this.createWorkflow(workflowData)
+  }
+
   updateWorkflow(workflowId, updates) {
     const workflow = this.workflows.get(workflowId)
     if (!workflow) {
