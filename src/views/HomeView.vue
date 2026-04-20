@@ -8,12 +8,16 @@
             <el-icon class="hero-icon"><Cpu /></el-icon>
             AI DevOps 助手
           </h1>
-          <p class="hero-subtitle">轻量、开源的 AI 辅助 DevOps 工具，专注于 Jenkinsfile 生成 + Dockerfile 分析</p>
+          <p class="hero-subtitle">轻量、开源的 AI 辅助 DevOps 工具，支持多平台 CI/CD 配置生成、智能诊断 + Dockerfile 分析</p>
           
           <div class="hero-actions">
-            <el-button type="primary" size="large" @click="$router.push('/jenkinsfile')">
+            <el-button type="primary" size="large" @click="$router.push('/cicd')">
               <el-icon><Tools /></el-icon>
-              开始生成 Jenkinsfile
+              开始生成 CI/CD 配置
+            </el-button>
+            <el-button size="large" @click="$router.push('/cicd-scanner')">
+              <el-icon><Search /></el-icon>
+              诊断现有 CI/CD 配置
             </el-button>
             <el-button size="large" @click="$router.push('/dockerfile')">
               <el-icon><Document /></el-icon>
@@ -26,20 +30,33 @@
       <!-- Features Section -->
       <el-main class="features-section">
         <el-row :gutter="20">
-          <el-col :span="8">
+          <el-col :span="6">
             <el-card class="feature-card" shadow="hover">
               <div class="feature-icon">
                 <el-icon size="48"><Tools /></el-icon>
               </div>
-              <h3>Jenkinsfile AI 生成</h3>
-              <p>选择模板 + 填写参数 → 一键生成专业 Jenkinsfile</p>
-              <el-button type="text" @click="$router.push('/jenkinsfile')">
+              <h3>多平台 CI/CD 配置生成</h3>
+              <p>支持 Jenkins、GitLab CI、GitHub Actions、Azure DevOps 等主流平台</p>
+              <el-button type="text" @click="$router.push('/cicd')">
                 立即体验 →
               </el-button>
             </el-card>
           </el-col>
           
-          <el-col :span="8">
+          <el-col :span="6">
+            <el-card class="feature-card" shadow="hover">
+              <div class="feature-icon">
+                <el-icon size="48"><Search /></el-icon>
+              </div>
+              <h3>CI/CD 配置智能诊断</h3>
+              <p>粘贴现有配置 → 检测缓存/超时/并行/安全问题 + 直接给出修复代码</p>
+              <el-button type="text" @click="$router.push('/cicd-scanner')">
+                立即体验 →
+              </el-button>
+            </el-card>
+          </el-col>
+          
+          <el-col :span="6">
             <el-card class="feature-card" shadow="hover">
               <div class="feature-icon">
                 <el-icon size="48"><Document /></el-icon>
@@ -52,7 +69,7 @@
             </el-card>
           </el-col>
           
-          <el-col :span="8">
+          <el-col :span="6">
             <el-card class="feature-card" shadow="hover">
               <div class="feature-icon">
                 <el-icon size="48"><Clock /></el-icon>
@@ -72,16 +89,16 @@
             <el-card class="stats-card">
               <div class="stats-content">
                 <div class="stat-item">
-                  <div class="stat-number">{{ stats.jenkinsfiles }}</div>
-                  <div class="stat-label">生成的 Jenkinsfile</div>
+                  <div class="stat-number">{{ stats.cicdConfigs }}</div>
+                  <div class="stat-label">生成的 CI/CD 配置</div>
                 </div>
                 <div class="stat-item">
                   <div class="stat-number">{{ stats.dockerfiles }}</div>
                   <div class="stat-label">分析的 Dockerfile</div>
                 </div>
                 <div class="stat-item">
-                  <div class="stat-number">{{ stats.templates }}</div>
-                  <div class="stat-label">内置模板</div>
+                  <div class="stat-number">{{ stats.platforms }}</div>
+                  <div class="stat-label">支持的平台</div>
                 </div>
                 <div class="stat-item">
                   <div class="stat-number">{{ stats.history }}</div>
@@ -98,7 +115,7 @@
             <el-card class="quickstart-card">
               <h3>快速开始</h3>
               <el-steps :active="1" finish-status="success">
-                <el-step title="选择功能" description="选择 Jenkinsfile 生成或 Dockerfile 分析"></el-step>
+                <el-step title="选择平台" description="选择 Jenkins、GitLab、GitHub 或 Azure"></el-step>
                 <el-step title="配置参数" description="填写相关参数或粘贴代码"></el-step>
                 <el-step title="AI 处理" description="AI 自动处理并生成结果"></el-step>
                 <el-step title="查看结果" description="查看生成的代码或分析报告"></el-step>
@@ -130,16 +147,16 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { Cpu, Tools, Document, Clock } from '@element-plus/icons-vue'
+import { Cpu, Tools, Document, Clock, Search } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
 import { aiService } from '@/services/ai-service'
 
 const appStore = useAppStore()
 
 const stats = ref({
-  jenkinsfiles: 0,
+  cicdConfigs: 0,
   dockerfiles: 0,
-  templates: 0,
+  platforms: 4,
   history: 0
 })
 
@@ -149,9 +166,9 @@ const loadStats = () => {
   const history = appStore.history
   
   stats.value = {
-    jenkinsfiles: history.filter(item => item.type === 'jenkinsfile').length,
+    cicdConfigs: history.filter(item => item.type === 'cicd' || item.type === 'jenkinsfile').length,
     dockerfiles: history.filter(item => item.type === 'dockerfile').length,
-    templates: 3, // 固定模板数量
+    platforms: 4,
     history: history.length
   }
 }
