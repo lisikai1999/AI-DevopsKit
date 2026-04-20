@@ -418,16 +418,101 @@
           </div>
         </el-tab-pane>
 
-        <el-tab-pane label="执行结果" name="execute" :disabled="!workflowStore.currentExecution">
-          <div v-if="workflowStore.currentExecution">
+        <el-tab-pane label="执行历史" name="history">
+          <div>
+            <el-row :gutter="24">
+              <el-col :span="24">
+                <el-card class="content-card">
+                  <template #header>
+                    <div class="card-header">
+                      <span class="card-title">所有执行历史</span>
+                      <el-button
+                        v-if="workflowStore.allExecutions.length > 0"
+                        size="small"
+                        type="danger"
+                        @click="confirmClearAllHistory"
+                      >
+                        清空历史
+                      </el-button>
+                    </div>
+                  </template>
+
+                  <el-empty
+                    v-if="workflowStore.allExecutions.length === 0"
+                    description="暂无执行历史"
+                  />
+
+                  <el-table v-else :data="workflowStore.allExecutions" style="width: 100%" stripe>
+                    <el-table-column prop="workflowSnapshot.name" label="工作流名称" min-width="200">
+                      <template #default="scope">
+                        <span>{{ scope.row.workflowSnapshot?.name || '未知工作流' }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="status" label="状态" width="120" align="center">
+                      <template #default="scope">
+                        <el-tag :type="getStatusTagType(scope.row.status)" size="small">
+                          {{ getStatusText(scope.row.status) }}
+                        </el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="workflowSnapshot.steps.length" label="步骤数" width="100" align="center">
+                      <template #default="scope">
+                        <el-tag size="small">{{ scope.row.workflowSnapshot?.steps?.length || 0 }}</el-tag>
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="执行时间" width="120" align="center">
+                      <template #default="scope">
+                        <span>{{ getExecutionDuration(scope.row) }}</span>
+                      </template>
+                    </el-table-column>
+                    <el-table-column prop="createdAt" label="执行时间" width="180">
+                      <template #default="scope">
+                        {{ formatDate(scope.row.createdAt) }}
+                      </template>
+                    </el-table-column>
+                    <el-table-column label="操作" width="200" fixed="right">
+                      <template #default="scope">
+                        <el-button size="small" type="primary" @click="viewExecutionHistory(scope.row)">
+                          <el-icon><View /></el-icon>
+                          查看详情
+                        </el-button>
+                        <el-button size="small" type="danger" link @click="confirmDeleteHistory(scope.row)">
+                          <el-icon><Delete /></el-icon>
+                        </el-button>
+                      </template>
+                    </el-table-column>
+                  </el-table>
+                </el-card>
+              </el-col>
+            </el-row>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="执行结果" name="execute" :disabled="!workflowStore.currentExecution && !selectedHistoryExecution">
+          <div v-if="workflowStore.currentExecution || selectedHistoryExecution">
+            <div v-if="selectedHistoryExecution" class="history-banner">
+              <el-alert
+                title="查看历史执行记录"
+                type="info"
+                :closable="false"
+                show-icon
+              >
+                <template #default>
+                  <span>当前查看的是历史执行记录：{{ selectedHistoryExecution.workflowSnapshot?.name }}</span>
+                  <el-button size="small" text type="primary" @click="clearSelectedHistory">
+                    返回当前执行
+                  </el-button>
+                </template>
+              </el-alert>
+            </div>
             <el-row :gutter="24">
               <el-col :span="24">
                 <el-card class="content-card">
                   <template #header>
                     <div class="card-header">
                       <span class="card-title">执行状态</span>
-                      <el-tag :type="getStatusTagType(workflowStore.currentExecution.status)">
-                        {{ getStatusText(workflowStore.currentExecution.status) }}
+                      <el-tag :type="getStatusTagType(activeExecution?.status)">
+                        {{ getStatusText(activeExecution?.status) }}
                       </el-tag>
                     </div>
                   </template>
@@ -435,14 +520,14 @@
                   <el-row :gutter="24">
                     <el-col :span="6">
                       <div class="stat-item">
-                        <div class="stat-value">{{ workflowStore.executionProgress?.totalSteps || 0 }}</div>
+                        <div class="stat-value">{{ activeExecutionProgress?.totalSteps || 0 }}</div>
                         <div class="stat-label">总步骤</div>
                       </div>
                     </el-col>
                     <el-col :span="6">
                       <div class="stat-item">
                         <div class="stat-value success">
-                          {{ workflowStore.executionProgress?.completedSteps || 0 }}
+                          {{ activeExecutionProgress?.completedSteps || 0 }}
                         </div>
                         <div class="stat-label">已完成</div>
                       </div>
@@ -450,7 +535,7 @@
                     <el-col :span="6">
                       <div class="stat-item">
                         <div class="stat-value running">
-                          {{ workflowStore.executionProgress?.runningSteps || 0 }}
+                          {{ activeExecutionProgress?.runningSteps || 0 }}
                         </div>
                         <div class="stat-label">执行中</div>
                       </div>
@@ -458,7 +543,7 @@
                     <el-col :span="6">
                       <div class="stat-item">
                         <div class="stat-value danger">
-                          {{ workflowStore.executionProgress?.failedSteps || 0 }}
+                          {{ activeExecutionProgress?.failedSteps || 0 }}
                         </div>
                         <div class="stat-label">失败</div>
                       </div>
@@ -466,9 +551,9 @@
                   </el-row>
 
                   <el-progress
-                    v-if="workflowStore.executionProgress"
-                    :percentage="Math.round(workflowStore.executionProgress.progress)"
-                    :status="workflowStore.currentExecution.status === 'completed' ? 'success' : undefined"
+                    v-if="activeExecutionProgress"
+                    :percentage="Math.round(activeExecutionProgress.progress)"
+                    :status="activeExecution?.status === 'completed' ? 'success' : undefined"
                     style="margin-top: 20px;"
                   />
                 </el-card>
@@ -478,25 +563,67 @@
                 <el-card class="content-card">
                   <template #header>
                     <span class="card-title">步骤执行状态</span>
+                    <span style="font-size: 12px; color: #909399;">点击步骤查看输出</span>
                   </template>
 
                   <div class="step-status-list">
                     <div
-                      v-for="step in workflowStore.currentExecution.workflowSnapshot.steps"
+                      v-for="step in activeExecution?.workflowSnapshot?.steps || []"
                       :key="step.id"
                       class="step-status-item"
+                      :class="{ 'step-status-expanded': selectedStepForDetail === step.id }"
+                      @click="toggleStepDetail(step.id)"
                     >
                       <div class="step-status-icon">
-                        <el-icon :class="getStepStatusClass(getStepStatus(step.id))">
-                          <component :is="getStepStatusIcon(getStepStatus(step.id))" />
+                        <el-icon :class="getStepStatusClass(getStepStatusForExecution(activeExecution, step.id))">
+                          <component :is="getStepStatusIcon(getStepStatusForExecution(activeExecution, step.id))" />
                         </el-icon>
                       </div>
                       <div class="step-status-info">
                         <div class="step-status-name">{{ step.name }}</div>
                         <div class="step-status-time">
-                          {{ getStepDuration(step.id) }}
+                          {{ getStepDurationForExecution(activeExecution, step.id) }}
                         </div>
                       </div>
+                      <div class="step-status-expand">
+                        <el-icon v-if="hasStepResult(activeExecution, step.id)">
+                          <component :is="selectedStepForDetail === step.id ? 'CaretTop' : 'CaretBottom'" />
+                        </el-icon>
+                      </div>
+                    </div>
+
+                    <div
+                      v-if="selectedStepForDetail && hasStepResult(activeExecution, selectedStepForDetail)"
+                      class="step-detail-container"
+                    >
+                      <el-card class="step-detail-card" shadow="never">
+                        <template #header>
+                          <div class="step-detail-header">
+                            <span class="step-detail-title">步骤输出</span>
+                            <el-tag :type="getStepStatusTagType(getStepStatusForExecution(activeExecution, selectedStepForDetail))" size="small">
+                              {{ getStatusText(getStepStatusForExecution(activeExecution, selectedStepForDetail)) }}
+                            </el-tag>
+                          </div>
+                        </template>
+
+                        <div class="step-detail-content">
+                          <template v-if="getStepResult(activeExecution, selectedStepForDetail)">
+                            <div v-if="getStepResult(activeExecution, selectedStepForDetail).content" class="step-output-section">
+                              <div class="step-output-label">输出内容：</div>
+                              <pre class="step-output-content">{{ getStepResult(activeExecution, selectedStepForDetail).content }}</pre>
+                            </div>
+
+                            <div v-if="getStepResult(activeExecution, selectedStepForDetail).data && Object.keys(getStepResult(activeExecution, selectedStepForDetail).data).length > 0" class="step-output-section">
+                              <div class="step-output-label">详细数据：</div>
+                              <pre class="step-output-content">{{ JSON.stringify(getStepResult(activeExecution, selectedStepForDetail).data, null, 2) }}</pre>
+                            </div>
+
+                            <div v-if="!getStepResult(activeExecution, selectedStepForDetail).content && !getStepResult(activeExecution, selectedStepForDetail).data" class="step-output-empty">
+                              该步骤暂无输出内容
+                            </div>
+                          </template>
+                        </div>
+                      </el-card>
                     </div>
                   </div>
                 </el-card>
@@ -509,14 +636,14 @@
                   </template>
 
                   <div class="log-container">
-                    <div v-for="(log, index) in workflowStore.executionLogs" :key="index" class="log-item">
+                    <div v-for="(log, index) in activeExecutionLogs" :key="index" class="log-item">
                       <el-tag v-if="log.type" size="small" :type="getLogTagType(log.type)">
                         {{ log.type }}
                       </el-tag>
                       <span class="log-time">{{ log.timestamp }}</span>
                       <span class="log-message">{{ log.stepName || log.message }}</span>
                     </div>
-                    <div v-if="workflowStore.executionLogs.length === 0" class="log-empty">
+                    <div v-if="activeExecutionLogs.length === 0" class="log-empty">
                       等待执行...
                     </div>
                   </div>
@@ -575,7 +702,7 @@
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Share, Plus, Edit, VideoPlay, CopyDocument, Delete, Check, ArrowUp, ArrowDown } from '@element-plus/icons-vue'
+import { Share, Plus, Edit, VideoPlay, CopyDocument, Delete, Check, ArrowUp, ArrowDown, View, CaretTop, CaretBottom } from '@element-plus/icons-vue'
 import { useWorkflowStore } from '@/stores/workflow-store'
 import { ActionType, ActionTypeInfo, WorkflowStatus, StepStatus } from '@/services/workflow-engine'
 
@@ -584,6 +711,8 @@ const workflowStore = useWorkflowStore()
 const activeTab = ref('list')
 const editingWorkflow = ref(null)
 const selectedStepId = ref(null)
+const selectedHistoryExecution = ref(null)
+const selectedStepForDetail = ref(null)
 const showCreateDialog = ref(false)
 const createMode = ref('template')
 const selectedTemplateForCreate = ref(null)
@@ -626,6 +755,42 @@ const variableList = computed({
       })
     }
   }
+})
+
+const activeExecution = computed(() => {
+  return selectedHistoryExecution.value || workflowStore.currentExecution
+})
+
+const activeExecutionProgress = computed(() => {
+  if (!activeExecution.value) return null
+  
+  if (selectedHistoryExecution.value) {
+    const stepStatusValues = Object.values(activeExecution.value.stepStatuses || {})
+    const totalSteps = activeExecution.value.workflowSnapshot?.steps?.length || 0
+    const completedSteps = stepStatusValues.filter(s => s.status === StepStatus.COMPLETED).length
+    const failedSteps = stepStatusValues.filter(s => s.status === StepStatus.FAILED).length
+    const runningSteps = stepStatusValues.filter(s => s.status === StepStatus.RUNNING).length
+    
+    return {
+      totalSteps,
+      completedSteps,
+      failedSteps,
+      runningSteps,
+      progress: totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0,
+      status: activeExecution.value.status,
+      startTime: activeExecution.value.startTime,
+      endTime: activeExecution.value.endTime
+    }
+  }
+  
+  return workflowStore.executionProgress
+})
+
+const activeExecutionLogs = computed(() => {
+  if (selectedHistoryExecution.value) {
+    return selectedHistoryExecution.value.logs || []
+  }
+  return workflowStore.executionLogs
 })
 
 onMounted(() => {
@@ -980,9 +1145,108 @@ function getLogTagType(type) {
   return types[type] || 'info'
 }
 
+function getStepStatusForExecution(execution, stepId) {
+  if (!execution) return StepStatus.PENDING
+  const status = execution.stepStatuses?.[stepId]
+  return status?.status || StepStatus.PENDING
+}
+
+function getStepDurationForExecution(execution, stepId) {
+  if (!execution) return ''
+  const status = execution.stepStatuses?.[stepId]
+  if (!status) return ''
+  
+  if (status.startTime && status.endTime) {
+    const duration = status.endTime - status.startTime
+    if (duration < 1000) return `${duration}ms`
+    if (duration < 60000) return `${Math.floor(duration / 1000)}s`
+    return `${Math.floor(duration / 60000)}m ${Math.floor((duration % 60000) / 1000)}s`
+  }
+  if (status.startTime) return '执行中...'
+  return '等待执行'
+}
+
+function hasStepResult(execution, stepId) {
+  if (!execution || !execution.stepResults) return false
+  return execution.stepResults[stepId] !== undefined
+}
+
+function getStepResult(execution, stepId) {
+  if (!execution || !execution.stepResults) return null
+  return execution.stepResults[stepId] || null
+}
+
+function getStepStatusTagType(status) {
+  const types = {
+    [StepStatus.PENDING]: 'info',
+    [StepStatus.RUNNING]: 'primary',
+    [StepStatus.COMPLETED]: 'success',
+    [StepStatus.FAILED]: 'danger',
+    [StepStatus.SKIPPED]: 'info'
+  }
+  return types[status] || 'info'
+}
+
+function getExecutionDuration(execution) {
+  if (!execution || !execution.startTime) return '-'
+  
+  const endTime = execution.endTime || Date.now()
+  const duration = endTime - execution.startTime
+  
+  if (duration < 1000) return `${duration}ms`
+  if (duration < 60000) return `${Math.floor(duration / 1000)}s`
+  return `${Math.floor(duration / 60000)}m ${Math.floor((duration % 60000) / 1000)}s`
+}
+
+function viewExecutionHistory(execution) {
+  selectedHistoryExecution.value = execution
+  selectedStepForDetail.value = null
+  activeTab.value = 'execute'
+}
+
+function clearSelectedHistory() {
+  selectedHistoryExecution.value = null
+  selectedStepForDetail.value = null
+}
+
+function toggleStepDetail(stepId) {
+  if (selectedStepForDetail.value === stepId) {
+    selectedStepForDetail.value = null
+  } else {
+    selectedStepForDetail.value = stepId
+  }
+}
+
+function confirmClearAllHistory() {
+  ElMessageBox.confirm('确定要清空所有执行历史吗？此操作不可恢复。', '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    workflowStore.clearExecutionHistory()
+    ElMessage.success('已清空所有执行历史')
+  }).catch(() => {})
+}
+
+function confirmDeleteHistory(execution) {
+  ElMessageBox.confirm(`确定要删除执行记录 "${execution.workflowSnapshot?.name || '未知工作流'}" 吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    workflowStore.executionHistory = workflowStore.executionHistory.filter(e => e.id !== execution.id)
+    localStorage.setItem('ai-devops-execution-history', JSON.stringify(workflowStore.executionHistory))
+    ElMessage.success('执行记录已删除')
+  }).catch(() => {})
+}
+
 watch(activeTab, (newVal) => {
   if (newVal !== 'edit') {
     selectedStepId.value = null
+  }
+  if (newVal !== 'execute') {
+    selectedHistoryExecution.value = null
+    selectedStepForDetail.value = null
   }
 })
 </script>
@@ -1239,6 +1503,99 @@ watch(activeTab, (newVal) => {
   font-size: 12px;
   color: #909399;
   margin-top: 2px;
+}
+
+.step-status-expand {
+  margin-left: auto;
+  color: #909399;
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.step-status-expand:hover {
+  color: #409eff;
+}
+
+.step-status-item {
+  cursor: pointer;
+  transition: background-color 0.3s;
+  padding: 12px 8px;
+  margin: 0 -8px;
+}
+
+.step-status-item:hover {
+  background-color: #f5f7fa;
+}
+
+.step-status-expanded {
+  background-color: #ecf5ff !important;
+}
+
+.history-banner {
+  margin-bottom: 16px;
+}
+
+.step-detail-container {
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  margin: 8px 0 16px 0;
+}
+
+.step-detail-card {
+  background-color: transparent;
+  border: none;
+}
+
+.step-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.step-detail-title {
+  font-weight: 600;
+  color: #303133;
+}
+
+.step-detail-content {
+  padding: 8px 0;
+}
+
+.step-output-section {
+  margin-bottom: 16px;
+}
+
+.step-output-section:last-child {
+  margin-bottom: 0;
+}
+
+.step-output-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #606266;
+  margin-bottom: 8px;
+}
+
+.step-output-content {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  padding: 12px;
+  border-radius: 6px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+.step-output-empty {
+  text-align: center;
+  padding: 24px;
+  color: #909399;
+  font-size: 14px;
 }
 
 .log-container {

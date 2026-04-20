@@ -9,6 +9,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const currentWorkflow = ref(null)
   const currentExecution = ref(null)
   const executionLogs = ref([])
+  const executionHistory = ref([])
   const templates = ref([])
   const selectedTemplate = ref(null)
   const isLoading = ref(false)
@@ -16,6 +17,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   const workflowCount = computed(() => workflows.value.length)
   const activeWorkflows = computed(() => workflows.value.filter(w => !w.archived))
+  const allExecutions = computed(() => {
+    return executionHistory.value
+      .slice()
+      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+  })
 
   function loadTemplates() {
     try {
@@ -65,6 +71,63 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  function saveExecutionToHistory(execution) {
+    try {
+      if (!execution) return
+      
+      const historyRecord = {
+        ...JSON.parse(JSON.stringify(execution)),
+        savedAt: new Date().toISOString()
+      }
+      
+      const existingIndex = executionHistory.value.findIndex(e => e.id === execution.id)
+      if (existingIndex !== -1) {
+        executionHistory.value[existingIndex] = historyRecord
+      } else {
+        executionHistory.value.push(historyRecord)
+      }
+      
+      localStorage.setItem('ai-devops-execution-history', JSON.stringify(executionHistory.value))
+    } catch (error) {
+      console.error('[WorkflowStore] 保存执行历史失败:', error)
+    }
+  }
+
+  function loadExecutionHistory() {
+    try {
+      const saved = localStorage.getItem('ai-devops-execution-history')
+      if (saved) {
+        executionHistory.value = JSON.parse(saved)
+      }
+    } catch (error) {
+      console.error('[WorkflowStore] 加载执行历史失败:', error)
+      executionHistory.value = []
+    }
+  }
+
+  function getWorkflowExecutions(workflowId) {
+    return executionHistory.value
+      .filter(e => e.workflowId === workflowId)
+      .sort((a, b) => new Date(b.startTime) - new Date(a.startTime))
+  }
+
+  function getExecutionFromHistory(executionId) {
+    return executionHistory.value.find(e => e.id === executionId) || null
+  }
+
+  function clearExecutionHistory(workflowId = null) {
+    try {
+      if (workflowId) {
+        executionHistory.value = executionHistory.value.filter(e => e.workflowId !== workflowId)
+      } else {
+        executionHistory.value = []
+      }
+      localStorage.setItem('ai-devops-execution-history', JSON.stringify(executionHistory.value))
+    } catch (error) {
+      console.error('[WorkflowStore] 清除执行历史失败:', error)
+    }
+  }
+
   function clearSavedExecution() {
     try {
       localStorage.removeItem('ai-devops-current-execution')
@@ -77,6 +140,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     if (currentExecution.value) {
       currentExecution.value = JSON.parse(JSON.stringify(currentExecution.value))
       saveCurrentExecution()
+      saveExecutionToHistory(currentExecution.value)
     }
   }
 
@@ -89,6 +153,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           workflowEngine.registerWorkflow(workflow)
         })
       }
+      loadExecutionHistory()
       loadCurrentExecution()
     } catch (error) {
       console.error('[WorkflowStore] 加载工作流失败:', error)
@@ -376,12 +441,14 @@ export const useWorkflowStore = defineStore('workflow', () => {
     currentWorkflow,
     currentExecution,
     executionLogs,
+    executionHistory,
     templates,
     selectedTemplate,
     isLoading,
     executionProgress,
     workflowCount,
     activeWorkflows,
+    allExecutions,
     loadTemplates,
     loadWorkflows,
     saveWorkflows,
@@ -401,6 +468,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     executeWorkflow,
     getExecutionLogs,
     clearExecutionState,
-    setSelectedTemplate
+    setSelectedTemplate,
+    saveExecutionToHistory,
+    loadExecutionHistory,
+    getWorkflowExecutions,
+    getExecutionFromHistory,
+    clearExecutionHistory
   }
 })
