@@ -1,10 +1,13 @@
 import axios from 'axios'
+import { AppError, ErrorType, analyzeError, safeAsync } from '@/utils/errorHandler'
+
 /**
  * AI服务的响应结构
  * @typedef {Object} AIResponse
  * @property {string} content - 响应内容
  * @property {boolean} success - 请求是否成功
  * @property {string} [error] - 错误信息（可选）
+ * @property {Object} [errorDetails] - 详细错误信息（用于调试）
  */
 
 /**
@@ -45,11 +48,12 @@ export class AIService {
    * 生成Jenkinsfile
    * @param {string} template - 模板类型（basic/docker/advanced）
    * @param {Record<string, any>} parameters - 生成参数
+   * @param {string} templateId - 模板ID
    * @returns {Promise<AIResponse>} AI响应结果
    */
-  async generateJenkinsfile(template, parameters, templateId=sample) {
+  async generateJenkinsfile(template, parameters, templateId = 'sample') {
     if (this.#isMockMode) {
-      return this.#mockJenkinsfileResponse(templateId, parameters);
+      return this.#mockJenkinsfileResponse(templateId, parameters)
     }
 
     try {
@@ -64,16 +68,15 @@ export class AIService {
 3. 错误处理
 4. 清晰的注释
 
-只返回 Jenkinsfile 内容，不要包含其他解释。`;
+只返回 Jenkinsfile 内容，不要包含其他解释。`
 
-      const response = await this.#callAI(prompt);
-      return response;
+      const response = await this.#callAI(prompt)
+      return response
     } catch (error) {
-      return {
-        success: false,
-        error: '生成 Jenkinsfile 失败',
-        content: ''
-      };
+      return this.#createErrorResponse(
+        error,
+        `生成 Jenkinsfile 失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接和 API 配置后重试'}`
+      )
     }
   }
 
@@ -84,10 +87,8 @@ export class AIService {
    */
   async analyzeDockerfile(content) {
     if (this.#isMockMode) {
-      return this.#mockDockerfileAnalysis(content);
+      return this.#mockDockerfileAnalysis(content)
     }
-
-    // ai输出优化后的Dockerfile内容基本不可控, 可能导致json解析失败。此处ai输出分为两步执行
 
     try {
       const prompt = `请分析以下 Dockerfile 的安全性、性能：
@@ -104,52 +105,150 @@ ${content}
   "issues": [{"line": 行号, "type": "error|warning|info", "message": "问题描述", "suggestion": "建议"}],
   "suggestions": ["建议1", "建议2"],
   "score": 评分(0-100)
-}`;
+}`
 
-      // 第一步：获取分析报告
-      const response = await this.#callAI(prompt);
-      const parsedResponse = JSON.parse(response.content); // 测试是否能被解析成json
+      const response = await this.#callAI(prompt)
+      
+      let parsedResponse
+      try {
+        parsedResponse = JSON.parse(response.content)
+      } catch (parseError) {
+        console.warn('[AIService] AI返回的JSON解析失败，尝试使用原始内容', {
+          error: parseError.message,
+          rawContent: response.content.substring(0, 200)
+        })
+        
+        parsedResponse = {
+          issues: [],
+          suggestions: [response.content.substring(0, 500)],
+          score: 70
+        }
+      }
 
-      // 第二步：基于分析报告，生成优化后的Dockerfile
       const prompt2 = `
 对于以下Dockerfile
 ${content}
-      基于以下分析报告，请提供一个优化后的 Dockerfile：
+基于以下分析报告，请提供一个优化后的 Dockerfile：
 ${response.content}
-请只返回优化后的 Dockerfile 内容，不要包含其他解释。`;
+请只返回优化后的 Dockerfile 内容，不要包含其他解释。`
 
-      const response2 = await this.#callAI(prompt2);
-
-      // 合并分析报告和优化后的Dockerfile
-      parsedResponse['optimizedContent'] = response2.content;
-         
       try {
-        
-        return {
-          success: true,
-          content: JSON.stringify(parsedResponse, null, 2)
-        };
-      } catch (error){
-        console.error('具体错误原因：', error.message);
-        console.error('Dockerfile analysis response parsing failed', parsedResponse);
-        // 如果解析失败，返回原始响应包装后的结果
-        return {
-          success: true,
-          content: JSON.stringify({
-            issues: [],
-            suggestions: [parsedResponse],
-            score: 80,
-            optimizedContent: content
-          }, null, 2)
-        };
+        const response2 = await this.#callAI(prompt2)
+        parsedResponse.optimizedContent = response2.content
+      } catch (optimizeError) {
+        console.warn('[AIService] 生成优化Dockerfile失败，使用原始内容', {
+          error: optimizeError.message
+        })
+        parsedResponse.optimizedContent = content
+      }
+
+      return {
+        success: true,
+        content: JSON.stringify(parsedResponse, null, 2)
       }
     } catch (error) {
-      console.error('Dockerfile analysis failed', error.message);
-      return {
-        success: false,
-        error: '分析 Dockerfile 失败',
-        content: ''
-      };
+      return this.#createErrorResponse(
+        error,
+        `分析 Dockerfile 失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接后重试'}`
+      )
+    }
+  }
+
+  /**
+   * 生成 CI/CD 配置文件
+   * @param {string} platformId - 平台ID (jenkins, gitlab, github, azure)
+   * @param {string} platformName - 平台名称
+   * @param {string} template - 模板内容
+   * @param {Record<string, any>} parameters - 生成参数
+   * @param {string} templateId - 模板ID
+   * @returns {Promise<AIResponse>} AI响应结果
+   */
+  async generateCICDConfig(platformId, platformName, template, parameters, templateId = 'sample') {
+    if (this.#isMockMode) {
+      return this.#mockCICDResponse(platformId, templateId, parameters)
+    }
+
+    try {
+      const platformInfo = {
+        jenkins: {
+          name: 'Jenkins',
+          fileType: 'Jenkinsfile',
+          language: 'Groovy'
+        },
+        gitlab: {
+          name: 'GitLab CI/CD',
+          fileType: '.gitlab-ci.yml',
+          language: 'YAML'
+        },
+        github: {
+          name: 'GitHub Actions',
+          fileType: 'workflow.yml',
+          language: 'YAML'
+        },
+        azure: {
+          name: 'Azure DevOps',
+          fileType: 'azure-pipelines.yml',
+          language: 'YAML'
+        }
+      }
+
+      const info = platformInfo[platformId] || platformInfo.jenkins
+
+      let templateType = 'standard'
+      if (templateId.includes('simple') || templateId.includes('basic')) {
+        templateType = '简单构建'
+      } else if (templateId.includes('docker')) {
+        templateType = 'Docker 构建部署'
+      }
+
+      const prompt = `请根据以下模板类型和参数生成一个专业的 ${info.fileType}：
+
+模板类型：${templateType}
+参数：${JSON.stringify(parameters, null, 2)}
+
+请生成一个完整的、可用的 ${info.fileType}，包含：
+1. 完整的 pipeline 结构
+2. 合理的 stages 配置
+3. 错误处理
+4. 清晰的注释
+
+只返回 ${info.language} 格式的配置内容，不要包含其他解释。`
+
+      const response = await this.#callAI(prompt)
+      return response
+    } catch (error) {
+      return this.#createErrorResponse(
+        error,
+        `生成 CI/CD 配置失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接和 API 配置后重试'}`
+      )
+    }
+  }
+
+  /**
+   * 创建错误响应对象
+   * @private
+   * @param {Error} error - 原始错误
+   * @param {string} userFriendlyMessage - 用户友好的错误消息
+   * @returns {AIResponse} 错误响应
+   */
+  #createErrorResponse(error, userFriendlyMessage) {
+    const appError = AppError.fromError(error)
+    const details = {
+      type: appError.type,
+      timestamp: appError.timestamp,
+      ...appError.details
+    }
+    
+    console.error(`[AIService] ${userFriendlyMessage}`, {
+      error: appError.toJSON(),
+      technicalDetails: details
+    })
+    
+    return {
+      success: false,
+      error: userFriendlyMessage || appError.userMessage,
+      errorDetails: details,
+      content: ''
     }
   }
 
@@ -157,51 +256,90 @@ ${response.content}
    * 调用AI接口的核心方法（私有）
    * @param {string} prompt - 提示词
    * @returns {Promise<AIResponse>} AI响应结果
-   * @throws {Error} 当API密钥未配置或无响应时抛出错误
+   * @throws {AppError} 当API密钥未配置或请求失败时抛出错误
    */
   async #callAI(prompt) {
     if (!this.#apiKey) {
-      throw new Error('API key not configured');
-    }
-    
-
-    const response = await axios.post(
-      '/api/chat/v1/chat/completions',
-      {
-        model: this.#model,
-        messages: [
-          // {
-          //   role: 'system',
-          //   content: '你是一个专业的 DevOps 工程师，精通 Jenkins 和 Docker 技术。请提供专业、实用的建议和代码。'
-          // },
-          {
-            role: 'user',
-            content: prompt
+      throw new AppError(
+        'API key not configured',
+        ErrorType.AUTH,
+        {
+          userMessage: 'API 密钥未配置，请检查环境变量 VITE_OPENAI_API_KEY',
+          details: {
+            envVar: 'VITE_OPENAI_API_KEY',
+            isConfigured: false
           }
-        ],
-        max_tokens: 4096,
-        temperature: 1,
-        top_k: 6
-      },
-      {
-        headers: {
-          'Authorization': `Bearer ${this.#apiKey}`,
-          'Content-Type': 'application/json'
+        }
+      )
+    }
+
+    try {
+      const response = await axios.post(
+        '/api/chat/v1/chat/completions',
+        {
+          model: this.#model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          max_tokens: 4096,
+          temperature: 1,
+          top_k: 6
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${this.#apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 120000
+        }
+      )
+
+      if (response.data.choices && response.data.choices.length > 0) {
+        const jsonStr = response.data.choices[0].message.content
+              .replace(/^```json\s*/, '')
+              .replace(/\s*```$/, '')
+        return {
+          success: true,
+          content: jsonStr
         }
       }
-    );
-    // 处理响应, 去掉```json ```,避免json解析错误
-    if (response.data.choices && response.data.choices.length > 0) {
-      const jsonStr = response.data.choices[0].message.content
-            .replace(/^```json\s*/, '') // 移除开头的 ```json（含换行/空格）
-            .replace(/\s*```$/, '');    // 移除结尾的 ```（含换行/空格）
-      return {
-        success: true,
-        content: jsonStr
-      };
-    }
 
-    throw new Error('No response from AI service');
+      throw new AppError(
+        'No response content from AI service',
+        ErrorType.API,
+        {
+          userMessage: 'AI 服务返回了空响应，请稍后重试',
+          details: {
+            responseStatus: response.status,
+            hasChoices: !!response.data.choices,
+            choicesCount: response.data.choices?.length || 0
+          }
+        }
+      )
+    } catch (error) {
+      if (error instanceof AppError) {
+        throw error
+      }
+
+      const { type, userMessage, details } = analyzeError(error)
+      
+      throw new AppError(
+        error.message || 'AI API call failed',
+        type,
+        {
+          cause: error,
+          userMessage,
+          details: {
+            ...details,
+            endpoint: '/api/chat/v1/chat/completions',
+            model: this.#model
+          }
+        }
+      )
+    }
   }
 
   /**
@@ -307,6 +445,373 @@ ${response.content}
   }
 
   /**
+   * 模拟 CI/CD 配置生成的响应（私有）
+   * @param {string} platformId - 平台ID
+   * @param {string} templateId - 模板ID
+   * @param {Record<string, any>} parameters - 生成参数
+   * @returns {AIResponse} 模拟响应结果
+   */
+  #mockCICDResponse(platformId, templateId, parameters) {
+    const getResponse = () => {
+      switch (platformId) {
+        case 'gitlab':
+          if (templateId === 'gitlab-simple' || templateId === 'simple') {
+            return `stages:
+  - build
+  - test
+
+build:
+  stage: build
+  image: node:16
+  script:
+    - npm install
+    - ${parameters.buildCommand || "npm run build"}
+  artifacts:
+    paths:
+      - dist/
+
+test:
+  stage: test
+  image: node:16
+  script:
+    - npm install
+    - ${parameters.testCommand || "npm test"}
+`
+          } else if (templateId === 'gitlab-docker' || templateId === 'docker') {
+            return `variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+  IMAGE_TAG: \$CI_REGISTRY_IMAGE/${parameters.imageName || "myapp"}:\$CI_COMMIT_REF_SLUG
+
+stages:
+  - build
+  - test
+  - build_image
+  - deploy_${parameters.deployStage || "dev"}
+
+build:
+  stage: build
+  image: node:16
+  script:
+    - npm install
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+
+test:
+  stage: test
+  image: node:16
+  script:
+    - npm install
+    - npm test
+
+build_image:
+  stage: build_image
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u \$CI_REGISTRY_USER -p \$CI_REGISTRY_PASSWORD \$CI_REGISTRY
+  script:
+    - docker build -t \$IMAGE_TAG .
+    - docker push \$IMAGE_TAG
+  needs:
+    - build
+
+deploy_${parameters.deployStage || "dev"}:
+  stage: deploy_${parameters.deployStage || "dev"}
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u \$CI_REGISTRY_USER -p \$CI_REGISTRY_PASSWORD \$CI_REGISTRY
+  script:
+    - docker pull \$IMAGE_TAG
+    - echo "Deploying to ${parameters.deployStage || "dev"} environment"
+  environment:
+    name: ${parameters.deployStage || "dev"}
+  only:
+    - main
+  needs:
+    - build_image
+`
+          }
+          break
+
+        case 'github':
+          if (templateId === 'github-simple' || templateId === 'simple') {
+            return `name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [${parameters.nodeVersion || "18.x"}]
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js \${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: \${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Build
+      run: ${parameters.buildCommand || "npm run build"}
+      
+    - name: Test
+      run: ${parameters.testCommand || "npm test"}
+`
+          } else if (templateId === 'github-docker' || templateId === 'docker') {
+            return `name: Docker CI/CD
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+  pull_request:
+    branches: [ main ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: \${{ github.repository }}/${parameters.imageName || "myapp"}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build
+        run: npm run build
+        
+      - name: Test
+        run: npm test
+
+  build-and-push-image:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: \${{ env.REGISTRY }}
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: \${{ env.REGISTRY }}/\${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=${parameters.imageName || "myapp"}-
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: \${{ steps.meta.outputs.tags }}
+          labels: \${{ steps.meta.outputs.labels }}
+`
+          }
+          break
+
+        case 'azure':
+          if (templateId === 'azure-simple' || templateId === 'simple') {
+            return `trigger:
+  - main
+  - develop
+
+pr:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  nodeVersion: '${parameters.nodeVersion || "18.x"}'
+
+stages:
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: Build
+        displayName: 'Build Job'
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '\$(nodeVersion)'
+            displayName: 'Install Node.js'
+
+          - script: |
+              npm ci
+              ${parameters.buildCommand || "npm run build"}
+            displayName: 'npm install and build'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: 'dist'
+              ArtifactName: 'drop'
+            displayName: 'Publish artifacts'
+`
+          } else if (templateId === 'azure-docker' || templateId === 'docker') {
+            return `trigger:
+  - main
+
+variables:
+  imageRepository: '${parameters.imageName || "myapp"}'
+  containerRegistry: '${parameters.acrName || "mycontainerregistry"}.azurecr.io'
+  dockerfilePath: '**/Dockerfile'
+  tag: '\$(Build.BuildId)'
+  vmImageName: 'ubuntu-latest'
+
+stages:
+- stage: Build
+  displayName: Build and push stage
+  jobs:
+  - job: Build
+    displayName: Build
+    pool:
+      vmImage: \$(vmImageName)
+    steps:
+    - task: Docker@2
+      displayName: Build and push an image to container registry
+      inputs:
+        command: buildAndPush
+        repository: \$(imageRepository)
+        dockerfile: \$(dockerfilePath)
+        containerRegistry: 'dockerRegistryServiceConnection'
+        tags: |
+          \$(tag)
+          latest
+
+- stage: Deploy
+  displayName: Deploy to ACI
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - job: Deploy
+    displayName: Deploy to Azure Container Instances
+    pool:
+      vmImage: \$(vmImageName)
+    steps:
+    - task: AzureCLI@2
+      displayName: 'Deploy to ACI'
+      inputs:
+        azureSubscription: 'azureServiceConnection'
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          az container create \
+            --resource-group ${parameters.resourceGroup || "myResourceGroup"} \
+            --name ${parameters.imageName || "myapp"}-container \
+            --image \$(containerRegistry)/\$(imageRepository):\$(tag) \
+            --cpu 1 \
+            --memory 1.5 \
+            --ports 80 443 \
+            --dns-name-label ${parameters.imageName || "myapp"}-\$(Build.BuildId) \
+            --registry-username \$(acrUsername) \
+            --registry-password \$(acrPassword)
+`
+          }
+          break
+
+        case 'jenkins':
+        default:
+          if (templateId === 'jenkins-simple' || templateId === 'simple' || templateId === 'basic') {
+            return `pipeline {
+    agent any
+    
+    tools {
+        maven 'Maven 3.8.6'
+        jdk 'JDK 11'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: '${parameters.repoUrl || "https://github.com/example/repo.git"}'
+            }
+        }
+        
+        stage('Build') {
+            steps {
+                sh '${parameters.buildCommand || "mvn clean package"}'
+            }
+        }
+        
+        stage('Test') {
+            steps {
+                sh '${parameters.testCommand || "mvn test"}'
+            }
+        }
+    }
+}`
+          } else {
+            return `pipeline {
+    agent any
+    
+    stages {
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t docker.io/${parameters.imageName || "myapp"}:latest .'
+            }
+        }
+        
+        stage('Push Image') {
+            steps {
+                sh 'docker push docker.io/${parameters.imageName || "myapp"}:latest'
+            }
+        }
+    }
+}`
+          }
+      }
+      return `# Default configuration for ${platformId}`
+    }
+
+    const content = getResponse()
+    return {
+      success: true,
+      content
+    }
+  }
+
+  /**
    * 模拟Dockerfile分析的响应（私有）
    * @param {string} content - Dockerfile内容
    * @returns {AIResponse} 模拟响应结果
@@ -380,22 +885,38 @@ CMD ["node", "dist/index.js"]`
    */
   async analyzeBillingCSV(csvContent) {
     if (this.#isMockMode) {
-      return this.#mockBillingAnalysis(csvContent);
+      return this.#mockBillingAnalysis(csvContent)
     }
 
     try {
-      const prompt = `请分析以下 AWS 账单 CSV（CSV 第一行为表头，包含资源/服务和费用等字段）：\n\n${csvContent}\n\n请返回 JSON 格式，格式参考：{ "summary": {"totalCost": number, "period": "YYYY-MM"}, "topResources": [{"resource": "ec2", "cost": number, "percent": number}], "suggestions": ["..."], "chartData": {"categories": ["ec2"], "values": [100]} }`;
+      const prompt = `请分析以下 AWS 账单 CSV（CSV 第一行为表头，包含资源/服务和费用等字段）：\n\n${csvContent}\n\n请返回 JSON 格式，格式参考：{ "summary": {"totalCost": number, "period": "YYYY-MM"}, "topResources": [{"resource": "ec2", "cost": number, "percent": number}], "suggestions": ["..."], "chartData": {"categories": ["ec2"], "values": [100]} }`
 
-      const response = await this.#callAI(prompt);
+      const response = await this.#callAI(prompt)
+      
       try {
-        const parsed = JSON.parse(response.content);
-
-        return { success: true, content: JSON.stringify(parsed, null, 2) };
-      } catch {
-        return { success: true, content: JSON.stringify({ summary: { totalCost: 0, period: '' }, topResources: [], suggestions: [response.content], chartData: { categories: [], values: [] } }, null, 2) };
+        const parsed = JSON.parse(response.content)
+        return { success: true, content: JSON.stringify(parsed, null, 2) }
+      } catch (parseError) {
+        console.warn('[AIService] 账单分析结果JSON解析失败，使用原始内容', {
+          error: parseError.message,
+          rawContent: response.content.substring(0, 200)
+        })
+        
+        return { 
+          success: true, 
+          content: JSON.stringify({ 
+            summary: { totalCost: 0, period: '' }, 
+            topResources: [], 
+            suggestions: [response.content.substring(0, 500)], 
+            chartData: { categories: [], values: [] } 
+          }, null, 2) 
+        }
       }
     } catch (error) {
-      return { success: false, error: '分析账单失败', content: '' };
+      return this.#createErrorResponse(
+        error,
+        `分析账单失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接后重试'}`
+      )
     }
   }
 
@@ -406,24 +927,36 @@ CMD ["node", "dist/index.js"]`
    */
   async translateLog(logContent) {
     if (this.#isMockMode) {
-      return this.#mockLogTranslation(logContent);
+      return this.#mockLogTranslation(logContent)
     }
 
     try {
-      const prompt = `以下是英文技术日志，请翻译成中文并解释可能原因及给出具体修复建议：\n\n${logContent}\n\n请以 JSON 格式返回：{ "translation": "...", "explanation": "...", "fixes": ["..."] }`;
+      const prompt = `以下是英文技术日志，请翻译成中文并解释可能原因及给出具体修复建议：\n\n${logContent}\n\n请以 JSON 格式返回：{ "translation": "...", "explanation": "...", "fixes": ["..."] }`
 
-      const response = await this.#callAI(prompt);
-      
+      const response = await this.#callAI(prompt)
 
       try {
-        const parsed = JSON.parse(response.content);
-        return { success: true, content: JSON.stringify(parsed, null, 2) };
-      } catch {
-        return { success: true, content: JSON.stringify({ translation: response.content, explanation: '', fixes: [''] }, null, 2) };
+        const parsed = JSON.parse(response.content)
+        return { success: true, content: JSON.stringify(parsed, null, 2) }
+      } catch (parseError) {
+        console.warn('[AIService] 日志翻译结果JSON解析失败，使用原始内容', {
+          error: parseError.message
+        })
+        
+        return { 
+          success: true, 
+          content: JSON.stringify({ 
+            translation: response.content, 
+            explanation: 'AI返回格式异常，请直接查看翻译内容', 
+            fixes: [] 
+          }, null, 2) 
+        }
       }
     } catch (error) {
-      console.log(error)
-      return { success: false, error: '日志翻译失败', content: '' };
+      return this.#createErrorResponse(
+        error,
+        `日志翻译失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接后重试'}`
+      )
     }
   }
 
@@ -474,6 +1007,697 @@ CMD ["node", "dist/index.js"]`
     };
 
     return { success: true, content: JSON.stringify(mock, null, 2) };
+  }
+
+  /**
+   * 分析 CI/CD 配置文件，检测常见问题并提供修复建议
+   * @param {string} content - CI/CD 配置内容
+   * @param {string} platform - 平台类型 (jenkins, gitlab, github, azure)
+   * @returns {Promise<AIResponse>} AI响应结果，content 为 JSON 字符串：{ issues, suggestions, score, fixedContent }
+   */
+  async analyzeCICDConfig(content, platform = 'jenkins') {
+    if (this.#isMockMode) {
+      return this.#mockCICDAnalysis(content, platform)
+    }
+
+    try {
+      const platformInfo = {
+        jenkins: {
+          name: 'Jenkins',
+          fileType: 'Jenkinsfile',
+          language: 'Groovy'
+        },
+        gitlab: {
+          name: 'GitLab CI/CD',
+          fileType: '.gitlab-ci.yml',
+          language: 'YAML'
+        },
+        github: {
+          name: 'GitHub Actions',
+          fileType: 'workflow.yml',
+          language: 'YAML'
+        },
+        azure: {
+          name: 'Azure DevOps',
+          fileType: 'azure-pipelines.yml',
+          language: 'YAML'
+        }
+      }
+
+      const info = platformInfo[platform] || platformInfo.jenkins
+
+      const prompt = `请分析以下 ${info.fileType} 配置，检测常见问题并提供修复建议：
+
+${content}
+
+请检测以下类型的问题：
+1. 缓存配置问题（如未配置缓存导致构建缓慢）
+2. 超时时间设置不合理（过短或过长）
+3. 并行策略问题（如可以并行但顺序执行）
+4. 安全漏洞（如明文密码、硬编码密钥、不安全的权限配置）
+5. 性能问题（如未使用并行构建、镜像层未优化）
+6. 最佳实践缺失（如缺少错误处理、缺少通知机制）
+7. 资源配置不合理
+
+请以 JSON 格式返回结果（只返回JSON数据，不要包含其他内容）：
+{
+  "issues": [
+    {
+      "line": 行号(如果无法确定则为0),
+      "type": "error|warning|info",
+      "category": "缓存|超时|并行|安全|性能|最佳实践|资源",
+      "message": "问题描述",
+      "suggestion": "修复建议",
+      "severity": "高|中|低"
+    }
+  ],
+  "suggestions": [
+    "总体优化建议1",
+    "总体优化建议2"
+  ],
+  "score": 评分(0-100),
+  "summary": "简要总结分析结果"
+}`
+
+      const response = await this.#callAI(prompt)
+      
+      let parsedResponse
+      try {
+        parsedResponse = JSON.parse(response.content)
+      } catch (parseError) {
+        console.warn('[AIService] CI/CD分析结果JSON解析失败，尝试使用原始内容', {
+          error: parseError.message,
+          rawContent: response.content.substring(0, 200)
+        })
+        
+        parsedResponse = {
+          issues: [],
+          suggestions: [response.content.substring(0, 500)],
+          score: 70,
+          summary: '分析完成，但结果格式异常'
+        }
+      }
+
+      const prompt2 = `
+对于以下 ${info.fileType} 配置：
+${content}
+
+基于以下分析报告，请提供一个优化修复后的完整配置文件：
+${JSON.stringify(parsedResponse, null, 2)}
+
+请只返回修复后的 ${info.language} 配置内容，不要包含其他解释、注释或代码块标记。`
+
+      try {
+        const response2 = await this.#callAI(prompt2)
+        let fixedContent = response2.content
+        
+        if (platform === 'jenkins') {
+          fixedContent = fixedContent.replace(/^```(?:groovy|jenkinsfile)?\s*/, '').replace(/\s*```$/, '').trim()
+        } else {
+          fixedContent = fixedContent.replace(/^```(?:yaml|yml)?\s*/, '').replace(/\s*```$/, '').trim()
+        }
+        
+        parsedResponse.fixedContent = fixedContent
+      } catch (optimizeError) {
+        console.warn('[AIService] 生成修复CI/CD配置失败，使用原始内容', {
+          error: optimizeError.message
+        })
+        parsedResponse.fixedContent = content
+      }
+
+      return {
+        success: true,
+        content: JSON.stringify(parsedResponse, null, 2)
+      }
+    } catch (error) {
+      return this.#createErrorResponse(
+        error,
+        `分析 CI/CD 配置失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接后重试'}`
+      )
+    }
+  }
+
+  /**
+   * 模拟 CI/CD 配置分析响应（私有）
+   * @param {string} content - CI/CD 配置内容
+   * @param {string} platform - 平台类型
+   * @returns {AIResponse} 模拟响应结果
+   */
+  #mockCICDAnalysis(content, platform) {
+    const platformInfo = {
+      jenkins: {
+        name: 'Jenkins',
+        issues: [
+          {
+            line: 2,
+            type: 'warning',
+            category: '缓存',
+            message: '未配置构建缓存，每次构建都需要重新下载依赖',
+            suggestion: '建议使用 mavenLocal 缓存或配置 Jenkins 全局工具缓存',
+            severity: '中'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '超时',
+            message: '未显式设置超时时间，可能导致长时间运行的任务被意外终止',
+            suggestion: '建议使用 options { timeout(time: 30, unit: \"MINUTES\") } 设置合理的超时时间',
+            severity: '中'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '并行',
+            message: '测试和构建顺序执行，可以考虑并行执行以缩短总构建时间',
+            suggestion: '使用 parallel 块并行运行单元测试和集成测试',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '安全',
+            message: '未使用凭据管理，可能存在硬编码敏感信息的风险',
+            suggestion: '使用 Jenkins Credentials 插件管理凭据，通过 withCredentials 引用',
+            severity: '高'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '最佳实践',
+            message: '缺少构建失败通知机制',
+            suggestion: '添加 post { failure { mail to: \"dev@example.com\", subject: \"构建失败\" } }',
+            severity: '低'
+          }
+        ],
+        suggestions: [
+          '配置 maven 或 npm 缓存以加快构建速度',
+          '设置合理的超时时间防止构建卡住',
+          '考虑将测试阶段并行化',
+          '使用凭据插件管理敏感信息',
+          '添加构建状态通知'
+        ],
+        score: 65,
+        summary: '检测到5个可优化点，主要问题包括缺少缓存配置、超时设置、并行策略和安全凭据管理'
+      },
+      gitlab: {
+        name: 'GitLab CI/CD',
+        issues: [
+          {
+            line: 0,
+            type: 'warning',
+            category: '缓存',
+            message: '未配置 cache，每次 job 都需要重新下载依赖',
+            suggestion: '配置 cache: key: \"${CI_COMMIT_REF_SLUG}\" paths: [node_modules/]',
+            severity: '中'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '超时',
+            message: '未设置 job 超时时间，使用默认值可能不够',
+            suggestion: '设置 timeout: 30m 或根据实际需求调整',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '并行',
+            message: 'build 和 test 顺序执行，可以考虑使用 needs 或并行策略',
+            suggestion: '如果 test 不依赖 build 结果，可以设置 needs: [] 让它们并行',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '安全',
+            message: '可能使用了硬编码的敏感变量',
+            suggestion: '使用 GitLab CI/CD Variables 管理敏感信息，勾选 masked 和 protected',
+            severity: '高'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '最佳实践',
+            message: '未使用 rules 或 only/except 控制触发时机',
+            suggestion: '添加 rules: - if: \$CI_COMMIT_BRANCH == \"main\" 等条件控制',
+            severity: '低'
+          }
+        ],
+        suggestions: [
+          '配置 cache 缓存 node_modules 或其他依赖',
+          '设置合理的 job 超时时间',
+          '使用 needs 优化依赖关系，允许并行执行',
+          '通过 GitLab CI/CD Variables 管理敏感信息',
+          '使用 rules 精确控制 job 触发条件'
+        ],
+        score: 68,
+        summary: '检测到5个可优化点，建议配置缓存、设置超时、优化并行策略和安全变量管理'
+      },
+      github: {
+        name: 'GitHub Actions',
+        issues: [
+          {
+            line: 0,
+            type: 'warning',
+            category: '缓存',
+            message: '未使用 actions/cache 缓存依赖',
+            suggestion: '添加 - uses: actions/cache@v4 with: path: node_modules key: \${{ runner.os }}-node-\${{ hashFiles(\"**/package-lock.json\") }}',
+            severity: '中'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '超时',
+            message: '未设置 job 超时，默认 6 小时可能过长',
+            suggestion: '设置 timeout-minutes: 30 限制最大执行时间',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '并行',
+            message: '未使用 matrix 或并行 job 优化',
+            suggestion: '考虑使用 strategy: matrix 测试多个 Node 版本，或拆分独立 job 并行执行',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '安全',
+            message: '可能存在权限配置问题',
+            suggestion: '显式设置 permissions: contents: read 最小化权限，避免使用默认的 write 权限',
+            severity: '高'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '安全',
+            message: '未使用 GitHub Secrets 管理敏感信息',
+            suggestion: '使用 \${{ secrets.SECRET_NAME }} 引用机密，不要硬编码',
+            severity: '高'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '最佳实践',
+            message: '缺少构建失败通知',
+            suggestion: '添加 slack-send 或其他通知 action 在构建失败时通知团队',
+            severity: '低'
+          }
+        ],
+        suggestions: [
+          '使用 actions/cache 缓存 npm/maven 依赖',
+          '设置合理的 timeout-minutes',
+          '使用 matrix 策略多版本测试',
+          '显式配置最小化 permissions',
+          '使用 GitHub Secrets 管理敏感信息',
+          '添加构建状态通知'
+        ],
+        score: 60,
+        summary: '检测到6个可优化点，主要问题包括缺少缓存配置、权限配置和安全凭据管理'
+      },
+      azure: {
+        name: 'Azure DevOps',
+        issues: [
+          {
+            line: 0,
+            type: 'warning',
+            category: '缓存',
+            message: '未使用 Cache task 缓存依赖',
+            suggestion: '使用 Cache@2 task 缓存 node_modules 或其他依赖',
+            severity: '中'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '超时',
+            message: '未设置 job 超时时间',
+            suggestion: '设置 timeoutInMinutes: 30 限制最大执行时间',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '并行',
+            message: '未充分利用并行 job',
+            suggestion: '考虑使用 jobs: - job: Test strategy: parallel: 4 并行执行测试',
+            severity: '低'
+          },
+          {
+            line: 0,
+            type: 'warning',
+            category: '安全',
+            message: '可能硬编码了连接字符串或密钥',
+            suggestion: '使用 Azure DevOps Variable Groups 或 Library Secure Files 管理敏感信息',
+            severity: '高'
+          },
+          {
+            line: 0,
+            type: 'info',
+            category: '最佳实践',
+            message: '缺少构建质量检查',
+            suggestion: '添加 SonarCloud 或 Code Analysis task 进行代码质量检查',
+            severity: '低'
+          }
+        ],
+        suggestions: [
+          '使用 Cache@2 task 缓存依赖',
+          '设置合理的 timeoutInMinutes',
+          '使用 parallel 策略并行执行测试',
+          '通过 Variable Groups 管理敏感信息',
+          '添加代码质量检查任务'
+        ],
+        score: 68,
+        summary: '检测到5个可优化点，建议配置缓存、设置超时、优化并行策略和安全变量管理'
+      }
+    }
+
+    const info = platformInfo[platform] || platformInfo.jenkins
+    
+    let fixedContent = content
+    if (platform === 'jenkins') {
+      fixedContent = `pipeline {
+    agent any
+    
+    options {
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    
+    tools {
+        maven 'Maven 3.8.6'
+        jdk 'JDK 11'
+    }
+    
+    environment {
+        MAVEN_OPTS = '-Dmaven.repo.local=.m2/repository'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build & Test') {
+            parallel {
+                stage('Build') {
+                    steps {
+                        withMaven(maven: 'Maven 3.8.6', jdk: 'JDK 11', options: [
+                            artifactsPublisher(disabled: true)
+                        ]) {
+                            sh 'mvn clean package -DskipTests'
+                        }
+                    }
+                }
+                stage('Unit Tests') {
+                    steps {
+                        withMaven(maven: 'Maven 3.8.6', jdk: 'JDK 11', options: [
+                            junitPublisher(disabled: false, healthScaleFactor: 1.0)
+                        ]) {
+                            sh 'mvn test'
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            echo '清理工作空间...'
+            cleanWs()
+        }
+        success {
+            echo '构建成功!'
+        }
+        failure {
+            echo '构建失败!'
+        }
+    }
+}`
+    } else if (platform === 'gitlab') {
+      fixedContent = `stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  NODE_OPTIONS: '--max-old-space-size=4096'
+
+cache:
+  key: '\${CI_COMMIT_REF_SLUG}'
+  paths:
+    - node_modules/
+  policy: pull-push
+
+build:
+  stage: build
+  image: node:20-alpine
+  timeout: 30m
+  script:
+    - npm ci
+    - npm run build
+  artifacts:
+    paths:
+      - dist/
+    expire_in: 1 week
+  rules:
+    - if: \$CI_COMMIT_BRANCH
+    - if: \$CI_PIPELINE_SOURCE == 'merge_request_event'
+
+test:
+  stage: test
+  image: node:20-alpine
+  timeout: 20m
+  script:
+    - npm ci
+    - npm test
+  needs:
+    - build
+  rules:
+    - if: \$CI_COMMIT_BRANCH
+    - if: \$CI_PIPELINE_SOURCE == 'merge_request_event'
+
+deploy_prod:
+  stage: deploy
+  image: docker:latest
+  services:
+    - docker:dind
+  timeout: 45m
+  variables:
+    DOCKER_TLS_CERTDIR: '/certs'
+  script:
+    - docker login -u \$CI_REGISTRY_USER -p \$CI_REGISTRY_PASSWORD \$CI_REGISTRY
+    - docker build -t \$CI_REGISTRY_IMAGE:latest .
+    - docker push \$CI_REGISTRY_IMAGE:latest
+  rules:
+    - if: \$CI_COMMIT_BRANCH == 'main'
+  environment:
+    name: production
+    url: https://example.com`
+    } else if (platform === 'github') {
+      fixedContent = `name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js \${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linter
+        run: npm run lint
+        
+      - name: Build
+        run: npm run build
+        
+      - name: Test
+        run: npm test
+        env:
+          CI: true
+
+  build-and-push-image:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Log in to Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: \${{ github.actor }}
+          password: \${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/\${{ github.repository }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: \${{ steps.meta.outputs.tags }}
+          labels: \${{ steps.meta.outputs.labels }}`
+    } else {
+      fixedContent = `trigger:
+  - main
+  - develop
+
+pr:
+  - main
+
+variables:
+  nodeVersion: '20.x'
+  buildConfiguration: 'Release'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: Build
+    displayName: 'Build Stage'
+    jobs:
+      - job: Build
+        displayName: 'Build Job'
+        timeoutInMinutes: 30
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '\$(nodeVersion)'
+            displayName: 'Install Node.js'
+            
+          - task: Cache@2
+            inputs:
+              key: 'npm | "\$(Agent.OS)" | package-lock.json'
+              restoreKeys: |
+                npm | "\$(Agent.OS)"
+              path: 'node_modules'
+            displayName: 'Cache npm dependencies'
+            
+          - script: |
+              npm ci
+              npm run build
+            displayName: 'npm install and build'
+            
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: 'dist'
+              ArtifactName: 'drop'
+            displayName: 'Publish artifacts'
+            
+  - stage: Test
+    displayName: 'Test Stage'
+    dependsOn: Build
+    jobs:
+      - job: Test
+        displayName: 'Run Tests'
+        timeoutInMinutes: 20
+        strategy:
+          parallel: 2
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: '\$(nodeVersion)'
+            displayName: 'Install Node.js'
+            
+          - task: Cache@2
+            inputs:
+              key: 'npm | "\$(Agent.OS)" | package-lock.json'
+              path: 'node_modules'
+            displayName: 'Cache npm dependencies'
+            
+          - script: |
+              npm ci
+              npm test
+            displayName: 'Run tests'
+            
+          - task: PublishTestResults@2
+            inputs:
+              testResultsFormat: 'JUnit'
+              testResultsFiles: '**/test-*.xml'
+            displayName: 'Publish test results'
+            condition: succeededOrFailed()
+            
+  - stage: Deploy
+    displayName: 'Deploy to Production'
+    dependsOn: Test
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - deployment: Deploy
+        displayName: 'Deploy Job'
+        timeoutInMinutes: 45
+        environment: 'Production'
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - task: DownloadBuildArtifacts@0
+                  inputs:
+                    buildType: 'current'
+                    downloadType: 'single'
+                    artifactName: 'drop'
+                    downloadPath: '\$(System.ArtifactsDirectory)'
+                  displayName: 'Download artifacts'
+                  
+                - task: AzureWebApp@1
+                  inputs:
+                    azureSubscription: 'AzureServiceConnection'
+                    appType: 'webAppLinux'
+                    appName: 'my-web-app'
+                    package: '\$(System.ArtifactsDirectory)/drop'
+                  displayName: 'Deploy to Azure Web App'`
+    }
+
+    const mockAnalysis = {
+      issues: info.issues,
+      suggestions: info.suggestions,
+      score: info.score,
+      summary: info.summary,
+      fixedContent: fixedContent
+    }
+
+    return {
+      success: true,
+      content: JSON.stringify(mockAnalysis, null, 2)
+    }
   }
 
   /**
