@@ -25,6 +25,61 @@ export const useWorkflowStore = defineStore('workflow', () => {
     }
   }
 
+  function saveCurrentExecution() {
+    try {
+      if (currentExecution.value) {
+        const saveData = {
+          ...currentExecution.value
+        }
+        localStorage.setItem('ai-devops-current-execution', JSON.stringify(saveData))
+      }
+    } catch (error) {
+      console.error('[WorkflowStore] 保存执行状态失败:', error)
+    }
+  }
+
+  function loadCurrentExecution() {
+    try {
+      const saved = localStorage.getItem('ai-devops-current-execution')
+      if (saved) {
+        const data = JSON.parse(saved)
+        if (data && data.id) {
+          currentExecution.value = data
+          executionProgress.value = {
+            totalSteps: data.workflowSnapshot?.steps?.length || 0,
+            completedSteps: Object.values(data.stepStatuses || {}).filter(s => s.status === 'completed').length,
+            failedSteps: Object.values(data.stepStatuses || {}).filter(s => s.status === 'failed').length,
+            runningSteps: Object.values(data.stepStatuses || {}).filter(s => s.status === 'running').length,
+            progress: 0,
+            status: data.status,
+            startTime: data.startTime,
+            endTime: data.endTime
+          }
+          const totalSteps = executionProgress.value.totalSteps
+          const completedSteps = executionProgress.value.completedSteps
+          executionProgress.value.progress = totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0
+        }
+      }
+    } catch (error) {
+      console.error('[WorkflowStore] 加载执行状态失败:', error)
+    }
+  }
+
+  function clearSavedExecution() {
+    try {
+      localStorage.removeItem('ai-devops-current-execution')
+    } catch (error) {
+      console.error('[WorkflowStore] 清除执行状态失败:', error)
+    }
+  }
+
+  function refreshExecutionState() {
+    if (currentExecution.value) {
+      currentExecution.value = JSON.parse(JSON.stringify(currentExecution.value))
+      saveCurrentExecution()
+    }
+  }
+
   function loadWorkflows() {
     try {
       const saved = localStorage.getItem('ai-devops-workflows')
@@ -34,6 +89,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           workflowEngine.registerWorkflow(workflow)
         })
       }
+      loadCurrentExecution()
     } catch (error) {
       console.error('[WorkflowStore] 加载工作流失败:', error)
     }
@@ -262,6 +318,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
       
       const execution = workflowEngine.createExecution(workflowId, runtimeVariables)
       currentExecution.value = execution
+      saveCurrentExecution()
       
       workflowExecutor.subscribe(execution.id, (event) => {
         executionLogs.value.push({
@@ -271,6 +328,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
         
         if (['step_started', 'step_completed', 'step_failed', 'step_retry'].includes(event.type)) {
           executionProgress.value = workflowEngine.getExecutionProgress(execution.id)
+          refreshExecutionState()
+        }
+        
+        if (['workflow_completed', 'workflow_failed'].includes(event.type)) {
+          refreshExecutionState()
         }
       })
       
@@ -279,11 +341,13 @@ export const useWorkflowStore = defineStore('workflow', () => {
       isLoading.value = false
       
       executionProgress.value = workflowEngine.getExecutionProgress(execution.id)
+      refreshExecutionState()
       
       return result
       
     } catch (error) {
       isLoading.value = false
+      refreshExecutionState()
       throw error
     }
   }
@@ -296,6 +360,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
     currentExecution.value = null
     executionLogs.value = []
     executionProgress.value = null
+    clearSavedExecution()
   }
 
   function setSelectedTemplate(templateId) {
