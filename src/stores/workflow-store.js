@@ -138,9 +138,16 @@ export const useWorkflowStore = defineStore('workflow', () => {
 
   function refreshExecutionState() {
     if (currentExecution.value) {
-      currentExecution.value = JSON.parse(JSON.stringify(currentExecution.value))
-      saveCurrentExecution()
-      saveExecutionToHistory(currentExecution.value)
+      const latestExecution = workflowEngine.getExecution(currentExecution.value.id)
+      if (latestExecution) {
+        currentExecution.value = JSON.parse(JSON.stringify(latestExecution))
+        saveCurrentExecution()
+        saveExecutionToHistory(currentExecution.value)
+      } else {
+        currentExecution.value = JSON.parse(JSON.stringify(currentExecution.value))
+        saveCurrentExecution()
+        saveExecutionToHistory(currentExecution.value)
+      }
     }
   }
 
