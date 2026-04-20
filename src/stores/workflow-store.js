@@ -269,7 +269,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
           timestamp: event.timestamp || new Date().toISOString()
         })
         
-        if (event.type === 'step_started') {
+        if (['step_started', 'step_completed', 'step_failed', 'step_retry'].includes(event.type)) {
           executionProgress.value = workflowEngine.getExecutionProgress(execution.id)
         }
       })

@@ -42,8 +42,8 @@ export class WorkflowExecutor {
     result = result.replace(variablePattern, (match, key) => {
       const trimmedKey = key.trim()
       
-      if (stepResults && stepResults.has(trimmedKey)) {
-        const stepResult = stepResults.get(trimmedKey)
+      if (stepResults && stepResults[trimmedKey] !== undefined) {
+        const stepResult = stepResults[trimmedKey]
         if (stepResult && typeof stepResult === 'object' && stepResult.content) {
           try {
             const parsed = JSON.parse(stepResult.content)
@@ -65,8 +65,8 @@ export class WorkflowExecutor {
         const parts = trimmedKey.split('.')
         let current = stepResults
         for (let i = 0; i < parts.length - 1; i++) {
-          if (current.has(parts[i])) {
-            current = current.get(parts[i])
+          if (current && current[parts[i]] !== undefined) {
+            current = current[parts[i]]
           } else {
             return match
           }
@@ -644,13 +644,13 @@ DETAIL: The database server is not reachable.`
       const subStepId = `${step.id}_${subStep.id}`
       const subStepClone = { ...subStep, id: subStepId }
       
-      execution.stepStatuses.set(subStepId, {
+      execution.stepStatuses[subStepId] = {
         status: StepStatus.PENDING,
         startTime: null,
         endTime: null,
         retries: 0,
         error: null
-      })
+      }
 
       try {
         const subResult = await this.executeStep(subStepClone, execution, null)
@@ -699,13 +699,13 @@ DETAIL: The database server is not reachable.`
       const subStepId = `${step.id}_parallel_${index}`
       const subStepClone = { ...subStep, id: subStepId }
       
-      execution.stepStatuses.set(subStepId, {
+      execution.stepStatuses[subStepId] = {
         status: StepStatus.PENDING,
         startTime: null,
         endTime: null,
         retries: 0,
         error: null
-      })
+      }
 
       try {
         return await this.executeStep(subStepClone, execution, engine)
@@ -765,7 +765,7 @@ DETAIL: The database server is not reachable.`
     const script = config.script || ''
     const context = {
       variables: execution.variables,
-      stepResults: Object.fromEntries(execution.stepResults),
+      stepResults: execution.stepResults,
       logs: [],
       output: null
     }
@@ -811,13 +811,13 @@ DETAIL: The database server is not reachable.`
     const steps = execution.workflowSnapshot.steps
     
     for (const step of steps) {
-      const stepStatus = execution.stepStatuses.get(step.id)
+      const stepStatus = execution.stepStatuses[step.id]
       
       if (!stepStatus) continue
       if (stepStatus.status !== StepStatus.PENDING) continue
       
       const dependenciesMet = step.dependsOn.every(depId => {
-        const depStatus = execution.stepStatuses.get(depId)
+        const depStatus = execution.stepStatuses[depId]
         return depStatus && depStatus.status === StepStatus.COMPLETED
       })
       
@@ -832,7 +832,7 @@ DETAIL: The database server is not reachable.`
   checkAllStepsCompleted(execution) {
     const steps = execution.workflowSnapshot.steps
     return steps.every(step => {
-      const status = execution.stepStatuses.get(step.id)
+      const status = execution.stepStatuses[step.id]
       return status && (status.status === StepStatus.COMPLETED || status.status === StepStatus.SKIPPED)
     })
   }
@@ -840,7 +840,7 @@ DETAIL: The database server is not reachable.`
   checkAnyStepFailed(execution) {
     const steps = execution.workflowSnapshot.steps
     return steps.some(step => {
-      const status = execution.stepStatuses.get(step.id)
+      const status = execution.stepStatuses[step.id]
       return status && status.status === StepStatus.FAILED
     })
   }
@@ -919,7 +919,7 @@ DETAIL: The database server is not reachable.`
         executionId,
         status: WorkflowStatus.COMPLETED,
         logs: execution.logs,
-        results: Object.fromEntries(execution.stepResults)
+        results: execution.stepResults
       }
 
     } catch (error) {
