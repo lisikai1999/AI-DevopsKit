@@ -924,7 +924,7 @@ function getStatusText(status) {
 
 function getStepStatus(stepId) {
   if (!workflowStore.currentExecution) return StepStatus.PENDING
-  const status = workflowStore.currentExecution.stepStatuses?.get(stepId)
+  const status = workflowStore.currentExecution.stepStatuses?.[stepId]
   return status?.status || StepStatus.PENDING
 }
 
@@ -952,7 +952,7 @@ function getStepStatusIcon(status) {
 
 function getStepDuration(stepId) {
   if (!workflowStore.currentExecution) return ''
-  const status = workflowStore.currentExecution.stepStatuses?.get(stepId)
+  const status = workflowStore.currentExecution.stepStatuses?.[stepId]
   if (!status) return ''
   
   if (status.startTime && status.endTime) {
