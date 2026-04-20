@@ -118,7 +118,7 @@ export class WorkflowExecutor {
 
   async executeStep(step, execution, engine) {
     const stepId = step.id
-    const stepStatus = execution.stepStatuses.get(stepId)
+    const stepStatus = execution.stepStatuses[stepId]
     
     if (!stepStatus) {
       throw new Error(`Step status not found: ${stepId}`)
@@ -198,7 +198,7 @@ export class WorkflowExecutor {
           }
       }
 
-      execution.stepResults.set(stepId, result)
+      execution.stepResults[stepId] = result
       stepStatus.status = StepStatus.COMPLETED
       stepStatus.endTime = Date.now()
 

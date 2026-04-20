@@ -351,8 +351,8 @@ export class WorkflowEngine {
         ...workflow.variables,
         ...runtimeVariables
       },
-      stepResults: new Map(),
-      stepStatuses: new Map(),
+      stepResults: {},
+      stepStatuses: {},
       logs: [],
       startTime: null,
       endTime: null,
@@ -362,13 +362,13 @@ export class WorkflowEngine {
     }
 
     workflow.steps.forEach(step => {
-      execution.stepStatuses.set(step.id, {
+      execution.stepStatuses[step.id] = {
         status: StepStatus.PENDING,
         startTime: null,
         endTime: null,
         retries: 0,
         error: null
-      })
+      }
     })
 
     this.executions.set(execution.id, execution)
@@ -390,10 +390,11 @@ export class WorkflowEngine {
     }
 
     const totalSteps = execution.workflowSnapshot.steps.length
-    const completedSteps = Array.from(execution.stepStatuses.values()).filter(
+    const stepStatusValues = Object.values(execution.stepStatuses)
+    const completedSteps = stepStatusValues.filter(
       s => s.status === StepStatus.COMPLETED
     ).length
-    const failedSteps = Array.from(execution.stepStatuses.values()).filter(
+    const failedSteps = stepStatusValues.filter(
       s => s.status === StepStatus.FAILED
     ).length
 
@@ -401,7 +402,7 @@ export class WorkflowEngine {
       totalSteps,
       completedSteps,
       failedSteps,
-      runningSteps: Array.from(execution.stepStatuses.values()).filter(
+      runningSteps: stepStatusValues.filter(
         s => s.status === StepStatus.RUNNING
       ).length,
       progress: totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0,
