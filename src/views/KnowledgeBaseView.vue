@@ -49,7 +49,7 @@
                 <p class="category-count">{{ filteredArticles(category).length }} 篇文章</p>
               </div>
               <el-icon class="expand-icon" :class="{ rotated: expandedCategories.includes(category.id) }">
-                <ChevronRight />
+                <ArrowRight />
               </el-icon>
             </div>
           </el-card>
@@ -99,7 +99,7 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { knowledgeCategories, getArticleById } from '@/utils/knowledge-base'
-import { Reading, Search, ChevronRight, View } from '@element-plus/icons-vue'
+import { Reading, Search, ArrowRight, View } from '@element-plus/icons-vue'
 
 const router = useRouter()
 

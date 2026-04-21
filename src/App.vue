@@ -36,26 +36,32 @@
             <el-icon><Document /></el-icon>
             <span>Dockerfile 分析器</span>
           </el-menu-item>
-          <el-menu-item index="/billing">
-            <el-icon><TrendCharts /></el-icon>
-            <span>账单分析</span>
-          </el-menu-item>
-          <el-menu-item index="/logs">
-            <el-icon><Failed /></el-icon>
-            <span>日志翻译</span>
-          </el-menu-item>
-          <el-menu-item index="/workflow">
-            <el-icon><Share /></el-icon>
-            <span>工作流编排</span>
-          </el-menu-item>
-          <el-menu-item index="/history">
-            <el-icon><Clock /></el-icon>
-            <span>历史记录</span>
-          </el-menu-item>
           <el-menu-item index="/knowledge">
             <el-icon><Reading /></el-icon>
             <span>知识库</span>
           </el-menu-item>
+          <el-sub-menu index="tools-menu">
+            <template #title>
+              <el-icon><Tools /></el-icon>
+              <span>更多工具</span>
+            </template>
+            <el-menu-item index="/billing">
+              <el-icon><TrendCharts /></el-icon>
+              <span>账单分析</span>
+            </el-menu-item>
+            <el-menu-item index="/logs">
+              <el-icon><Failed /></el-icon>
+              <span>日志翻译</span>
+            </el-menu-item>
+            <el-menu-item index="/workflow">
+              <el-icon><Share /></el-icon>
+              <span>工作流编排</span>
+            </el-menu-item>
+            <el-menu-item index="/history">
+              <el-icon><Clock /></el-icon>
+              <span>历史记录</span>
+            </el-menu-item>
+          </el-sub-menu>
 
         </el-menu>
         
@@ -174,6 +180,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
   }
 
   .app-title {
