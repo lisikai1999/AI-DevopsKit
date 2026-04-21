@@ -1072,6 +1072,168 @@ export function getStepConfigSchema(actionType) {
         label: '自定义脚本',
         required: false
       }
+    },
+    [ActionType.JENKINS_EXECUTE]: {
+      jenkinsUrl: {
+        type: 'text',
+        label: 'Jenkins URL',
+        placeholder: 'https://jenkins.example.com',
+        required: true
+      },
+      jobName: {
+        type: 'text',
+        label: 'Job 名称',
+        placeholder: 'my-job-name',
+        required: true
+      },
+      username: {
+        type: 'text',
+        label: '用户名',
+        placeholder: 'admin',
+        required: false
+      },
+      apiToken: {
+        type: 'password',
+        label: 'API Token',
+        placeholder: 'jenkins-api-token',
+        required: false
+      },
+      waitForBuild: {
+        type: 'checkbox',
+        label: '等待构建完成',
+        required: false
+      },
+      pollInterval: {
+        type: 'number',
+        label: '轮询间隔 (毫秒)',
+        default: 5000,
+        required: false
+      },
+      timeout: {
+        type: 'number',
+        label: '超时时间 (毫秒)',
+        default: 300000,
+        required: false
+      }
+    },
+    [ActionType.AWS_ECS_CHECK]: {
+      region: {
+        type: 'select',
+        label: 'AWS 区域',
+        options: [
+          { value: 'us-east-1', label: 'US East (N. Virginia)' },
+          { value: 'us-west-2', label: 'US West (Oregon)' },
+          { value: 'eu-west-1', label: 'EU (Ireland)' },
+          { value: 'ap-northeast-1', label: 'Asia Pacific (Tokyo)' },
+          { value: 'ap-southeast-1', label: 'Asia Pacific (Singapore)' },
+          { value: 'cn-north-1', label: 'China (Beijing)' },
+          { value: 'cn-northwest-1', label: 'China (Ningxia)' }
+        ],
+        required: true
+      },
+      cluster: {
+        type: 'text',
+        label: '集群名称',
+        placeholder: 'my-cluster',
+        required: true
+      },
+      serviceName: {
+        type: 'text',
+        label: '服务名称',
+        placeholder: 'my-service',
+        required: true
+      },
+      expectedCount: {
+        type: 'number',
+        label: '期望运行任务数 (可选)',
+        placeholder: '留空使用服务当前 desired count',
+        required: false
+      },
+      checkInterval: {
+        type: 'number',
+        label: '检查间隔 (毫秒)',
+        default: 30000,
+        required: false
+      },
+      maxRetries: {
+        type: 'number',
+        label: '最大重试次数',
+        default: 10,
+        required: false
+      },
+      accessKeyId: {
+        type: 'text',
+        label: 'AWS Access Key ID (可选)',
+        placeholder: 'AKIAIOSFODNN7EXAMPLE',
+        required: false
+      },
+      secretAccessKey: {
+        type: 'password',
+        label: 'AWS Secret Access Key (可选)',
+        placeholder: 'wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY',
+        required: false
+      }
+    },
+    [ActionType.WEWORK_NOTIFICATION]: {
+      webhookUrl: {
+        type: 'text',
+        label: '机器人 Webhook URL',
+        placeholder: 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx',
+        required: true
+      },
+      messageType: {
+        type: 'select',
+        label: '消息类型',
+        options: [
+          { value: 'text', label: '文本消息' },
+          { value: 'markdown', label: 'Markdown 消息' },
+          { value: 'news', label: '图文消息' },
+          { value: 'template_card', label: '模板卡片' }
+        ],
+        default: 'text',
+        required: true
+      },
+      content: {
+        type: 'text',
+        label: '消息内容',
+        placeholder: '输入消息内容...',
+        required: true
+      },
+      title: {
+        type: 'text',
+        label: '标题 (图文/卡片)',
+        placeholder: '消息标题',
+        required: false
+      },
+      description: {
+        type: 'text',
+        label: '描述 (图文/卡片)',
+        placeholder: '消息描述',
+        required: false
+      },
+      url: {
+        type: 'text',
+        label: '跳转链接',
+        placeholder: 'https://example.com',
+        required: false
+      },
+      picUrl: {
+        type: 'text',
+        label: '图片 URL (图文)',
+        placeholder: 'https://example.com/image.png',
+        required: false
+      },
+      mentions: {
+        type: 'text',
+        label: '@提及用户 (逗号分隔)',
+        placeholder: 'user1,user2',
+        required: false
+      },
+      mentionAll: {
+        type: 'checkbox',
+        label: '@所有人',
+        required: false
+      }
     }
   }
 

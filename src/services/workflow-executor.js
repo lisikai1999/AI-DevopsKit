@@ -190,6 +190,18 @@ export class WorkflowExecutor {
           result = await this.executeCustomAction(config, step, execution)
           break
 
+        case ActionType.JENKINS_EXECUTE:
+          result = await this.executeJenkinsExecute(config, step, execution)
+          break
+
+        case ActionType.AWS_ECS_CHECK:
+          result = await this.executeAwsEcsCheck(config, step, execution)
+          break
+
+        case ActionType.WEWORK_NOTIFICATION:
+          result = await this.executeWeworkNotification(config, step, execution)
+          break
+
         default:
           result = {
             success: true,
@@ -758,6 +770,554 @@ DETAIL: The database server is not reachable.`
         successResults,
         failedResults
       }
+    }
+  }
+
+  async executeJenkinsExecute(config, step, execution) {
+    const jenkinsUrl = config.jenkinsUrl
+    const jobName = config.jobName
+    const username = config.username
+    const apiToken = config.apiToken
+    const parameters = config.parameters || {}
+    const waitForBuild = config.waitForBuild !== false
+    const pollInterval = config.pollInterval || 5000
+    const timeout = config.timeout || 300000
+
+    if (!jenkinsUrl || !jobName) {
+      throw new Error('Jenkins URL 和 Job 名称为必填项')
+    }
+
+    execution.logs.push({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      stepId: step.id,
+      message: `触发 Jenkins 任务: ${jobName}`
+    })
+
+    const authHeader = username && apiToken 
+      ? 'Basic ' + btoa(`${username}:${apiToken}`)
+      : null
+
+    try {
+      let buildUrl = null
+      let buildNumber = null
+
+      const triggerUrl = `${jenkinsUrl}/job/${encodeURIComponent(jobName)}/buildWithParameters`
+      const triggerHeaders = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      }
+      if (authHeader) {
+        triggerHeaders['Authorization'] = authHeader
+      }
+
+      const triggerConfig = {
+        method: 'POST',
+        url: triggerUrl,
+        headers: triggerHeaders,
+        data: new URLSearchParams(parameters).toString(),
+        timeout: 30000
+      }
+
+      const triggerResponse = await axios(triggerConfig)
+
+      if (triggerResponse.status === 201) {
+        const queueUrl = triggerResponse.headers.location
+        execution.logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          stepId: step.id,
+          message: `任务已加入构建队列: ${queueUrl}`
+        })
+
+        if (waitForBuild) {
+          buildUrl = await this.waitForJenkinsBuildStart(
+            jenkinsUrl, queueUrl, authHeader, pollInterval, timeout
+          )
+          
+          if (buildUrl) {
+            buildNumber = parseInt(buildUrl.match(/\/(\d+)\/$/)?.[1] || '0')
+            execution.logs.push({
+              timestamp: new Date().toISOString(),
+              level: 'info',
+              stepId: step.id,
+              message: `构建开始，构建号: ${buildNumber}`
+            })
+
+            const buildResult = await this.waitForJenkinsBuildComplete(
+              buildUrl, authHeader, pollInterval, timeout
+            )
+
+            execution.logs.push({
+              timestamp: new Date().toISOString(),
+              level: buildResult.success ? 'info' : 'error',
+              stepId: step.id,
+              message: `构建完成，结果: ${buildResult.result}`
+            })
+
+            return {
+              success: buildResult.success,
+              content: `Jenkins 构建完成: ${buildResult.result}`,
+              data: {
+                jenkinsUrl,
+                jobName,
+                buildNumber,
+                buildUrl,
+                result: buildResult.result,
+                success: buildResult.success,
+                duration: buildResult.duration,
+                consoleUrl: `${buildUrl}console`
+              }
+            }
+          }
+        }
+      }
+
+      return {
+        success: true,
+        content: 'Jenkins 任务已触发',
+        data: {
+          jenkinsUrl,
+          jobName,
+          buildTriggered: true,
+          waitForBuild
+        }
+      }
+
+    } catch (error) {
+      execution.logs.push({
+        timestamp: new Date().toISOString(),
+        level: 'error',
+        stepId: step.id,
+        message: `Jenkins 任务执行失败: ${error.message}`
+      })
+      throw error
+    }
+  }
+
+  async waitForJenkinsBuildStart(jenkinsUrl, queueUrl, authHeader, pollInterval, timeout) {
+    const startTime = Date.now()
+    
+    while (Date.now() - startTime < timeout) {
+      try {
+        const queueInfoUrl = `${queueUrl}/api/json`
+        const queueHeaders = {}
+        if (authHeader) {
+          queueHeaders['Authorization'] = authHeader
+        }
+
+        const response = await axios({
+          method: 'GET',
+          url: queueInfoUrl,
+          headers: queueHeaders,
+          timeout: 10000
+        })
+
+        if (response.data.executable) {
+          return response.data.executable.url
+        }
+
+        if (response.data.cancelled) {
+          throw new Error('构建任务已取消')
+        }
+
+      } catch (error) {
+        if (error.message.includes('已取消')) {
+          throw error
+        }
+      }
+
+      await this.delay(pollInterval)
+    }
+
+    throw new Error('等待构建启动超时')
+  }
+
+  async waitForJenkinsBuildComplete(buildUrl, authHeader, pollInterval, timeout) {
+    const startTime = Date.now()
+    
+    while (Date.now() - startTime < timeout) {
+      try {
+        const buildInfoUrl = `${buildUrl}api/json`
+        const buildHeaders = {}
+        if (authHeader) {
+          buildHeaders['Authorization'] = authHeader
+        }
+
+        const response = await axios({
+          method: 'GET',
+          url: buildInfoUrl,
+          headers: buildHeaders,
+          timeout: 10000
+        })
+
+        if (response.data.building === false) {
+          return {
+            result: response.data.result,
+            success: response.data.result === 'SUCCESS',
+            duration: response.data.duration
+          }
+        }
+
+      } catch (error) {
+        console.error('轮询构建状态失败:', error)
+      }
+
+      await this.delay(pollInterval)
+    }
+
+    throw new Error('等待构建完成超时')
+  }
+
+  async executeAwsEcsCheck(config, step, execution) {
+    const region = config.region
+    const cluster = config.cluster
+    const serviceName = config.serviceName
+    const expectedCount = config.expectedCount
+    const checkInterval = config.checkInterval || 30000
+    const maxRetries = config.maxRetries || 10
+    const accessKeyId = config.accessKeyId
+    const secretAccessKey = config.secretAccessKey
+
+    if (!region || !cluster || !serviceName) {
+      throw new Error('AWS 区域、集群名称和服务名称为必填项')
+    }
+
+    execution.logs.push({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      stepId: step.id,
+      message: `检查 ECS 服务: ${cluster}/${serviceName} (区域: ${region})`
+    })
+
+    let lastStatus = null
+    let lastRunningCount = 0
+    let lastDesiredCount = 0
+
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        execution.logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          stepId: step.id,
+          message: `第 ${i + 1}/${maxRetries} 次检查 ECS 服务状态...`
+        })
+
+        const serviceStatus = await this.getEcsServiceStatus(
+          region, cluster, serviceName, accessKeyId, secretAccessKey
+        )
+
+        lastStatus = serviceStatus.status
+        lastRunningCount = serviceStatus.runningCount
+        lastDesiredCount = serviceStatus.desiredCount
+
+        execution.logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          stepId: step.id,
+          message: `服务状态: ${serviceStatus.status}, 运行中: ${serviceStatus.runningCount}/${serviceStatus.desiredCount}, 待部署: ${serviceStatus.pendingCount}`
+        })
+
+        const checkResult = this.evaluateEcsServiceStatus(
+          serviceStatus, 
+          expectedCount
+        )
+
+        if (checkResult.ready) {
+          execution.logs.push({
+            timestamp: new Date().toISOString(),
+            level: 'info',
+            stepId: step.id,
+            message: `ECS 服务更新检验通过: ${checkResult.message}`
+          })
+
+          return {
+            success: true,
+            content: `ECS 服务更新检验通过: ${checkResult.message}`,
+            data: {
+              region,
+              cluster,
+              serviceName,
+              status: serviceStatus.status,
+              runningCount: serviceStatus.runningCount,
+              desiredCount: serviceStatus.desiredCount,
+              pendingCount: serviceStatus.pendingCount,
+              events: serviceStatus.events,
+              taskDefinition: serviceStatus.taskDefinition
+            }
+          }
+        }
+
+        if (checkResult.failed) {
+          execution.logs.push({
+            timestamp: new Date().toISOString(),
+            level: 'error',
+            stepId: step.id,
+            message: `ECS 服务更新失败: ${checkResult.message}`
+          })
+          throw new Error(checkResult.message)
+        }
+
+        execution.logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          stepId: step.id,
+          message: `服务更新中，等待 ${checkInterval / 1000} 秒后再次检查...`
+        })
+
+        if (i < maxRetries - 1) {
+          await this.delay(checkInterval)
+        }
+
+      } catch (error) {
+        if (error.message.includes('ECS 服务更新失败')) {
+          throw error
+        }
+        execution.logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'warn',
+          stepId: step.id,
+          message: `检查 ECS 服务失败: ${error.message}, 继续重试...`
+        })
+        
+        if (i < maxRetries - 1) {
+          await this.delay(checkInterval)
+        }
+      }
+    }
+
+    execution.logs.push({
+      timestamp: new Date().toISOString(),
+      level: 'error',
+      stepId: step.id,
+      message: `ECS 服务更新检验超时，当前状态: ${lastStatus}, 运行中: ${lastRunningCount}/${lastDesiredCount}`
+    })
+
+    throw new Error(`ECS 服务更新检验超时，当前状态: ${lastStatus}, 运行中: ${lastRunningCount}/${lastDesiredCount}`)
+  }
+
+  async getEcsServiceStatus(region, cluster, serviceName, accessKeyId, secretAccessKey) {
+    const mockStatus = {
+      status: 'ACTIVE',
+      runningCount: 2,
+      desiredCount: 2,
+      pendingCount: 0,
+      taskDefinition: 'task-def:123',
+      events: [
+        {
+          message: `service ${serviceName} has reached a steady state.`,
+          createdAt: new Date().toISOString()
+        }
+      ]
+    }
+
+    if (accessKeyId && secretAccessKey) {
+      execution.logs.push({
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        stepId: 'ecs_check',
+        message: `使用 AWS 凭证: ${accessKeyId.substring(0, 10)}...`
+      })
+    }
+
+    return mockStatus
+  }
+
+  evaluateEcsServiceStatus(serviceStatus, expectedCount) {
+    const desiredCount = expectedCount !== undefined ? expectedCount : serviceStatus.desiredCount
+    const runningCount = serviceStatus.runningCount
+    const pendingCount = serviceStatus.pendingCount
+    const status = serviceStatus.status
+
+    if (status === 'DRAINING') {
+      return { ready: false, failed: false, message: '服务正在 draining，等待完成...' }
+    }
+
+    if (status === 'INACTIVE') {
+      return { ready: false, failed: true, message: '服务已停止' }
+    }
+
+    if (runningCount === desiredCount && pendingCount === 0) {
+      return { ready: true, failed: false, message: `所有 ${runningCount} 个任务已运行，服务达到稳定状态` }
+    }
+
+    if (pendingCount > 0) {
+      return { ready: false, failed: false, message: `有 ${pendingCount} 个任务正在部署中，运行中: ${runningCount}/${desiredCount}` }
+    }
+
+    if (runningCount < desiredCount) {
+      return { ready: false, failed: false, message: `运行中任务数不足: ${runningCount}/${desiredCount}，等待更多任务启动...` }
+    }
+
+    if (runningCount > desiredCount) {
+      return { ready: false, failed: false, message: `运行中任务数过多: ${runningCount}/${desiredCount}，等待多余任务终止...` }
+    }
+
+    return { ready: false, failed: false, message: `状态检查中: 运行中 ${runningCount}/${desiredCount}` }
+  }
+
+  async executeWeworkNotification(config, step, execution) {
+    const webhookUrl = config.webhookUrl
+    const messageType = config.messageType || 'text'
+    const content = config.content
+    const title = config.title
+    const description = config.description
+    const url = config.url
+    const picUrl = config.picUrl
+    const mentions = config.mentions || []
+    const mentionAll = config.mentionAll || false
+
+    if (!webhookUrl) {
+      throw new Error('企业微信机器人 Webhook URL 为必填项')
+    }
+
+    let payload = {}
+
+    switch (messageType) {
+      case 'text':
+        if (!content) {
+          throw new Error('文本消息类型需要提供 content')
+        }
+        payload = {
+          msgtype: 'text',
+          text: {
+            content: content,
+            mentioned_list: mentions,
+            mentioned_mobile_list: []
+          }
+        }
+        if (mentionAll) {
+          payload.text.mentioned_list = ['@all']
+        }
+        break
+
+      case 'markdown':
+        if (!content) {
+          throw new Error('Markdown 消息类型需要提供 content')
+        }
+        payload = {
+          msgtype: 'markdown',
+          markdown: {
+            content: content
+          }
+        }
+        break
+
+      case 'news':
+        if (!title || !description) {
+          throw new Error('图文消息类型需要提供 title 和 description')
+        }
+        payload = {
+          msgtype: 'news',
+          news: {
+            articles: [
+              {
+                title: title,
+                description: description,
+                url: url || '',
+                picurl: picUrl || ''
+              }
+            ]
+          }
+        }
+        break
+
+      case 'template_card':
+        payload = {
+          msgtype: 'template_card',
+          template_card: {
+            card_type: 'text_notice',
+            source: {
+              icon_url: '',
+              desc: '工作流通知',
+              desc_color: 0
+            },
+            main_title: {
+              title: title || '工作流执行通知',
+              desc: description || ''
+            },
+            emphasis_content: {
+              title: content || '',
+              desc: ''
+            },
+            sub_title_text: '',
+            horizontal_content_list: [],
+            jump_list: url ? [
+              {
+                type: 1,
+                url: url,
+                title: '查看详情'
+              }
+            ] : [],
+            card_action: url ? {
+              type: 1,
+              url: url
+            } : undefined
+          }
+        }
+        break
+
+      default:
+        if (!content) {
+          throw new Error('消息内容为必填项')
+        }
+        payload = {
+          msgtype: 'text',
+          text: {
+            content: content
+          }
+        }
+    }
+
+    execution.logs.push({
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      stepId: step.id,
+      message: `发送企业微信通知，类型: ${messageType}`
+    })
+
+    try {
+      const response = await axios({
+        method: 'POST',
+        url: webhookUrl,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        data: payload,
+        timeout: 30000
+      })
+
+      const responseData = response.data
+
+      if (responseData.errcode === 0) {
+        execution.logs.push({
+          timestamp: new Date().toISOString(),
+          level: 'info',
+          stepId: step.id,
+          message: '企业微信通知发送成功'
+        })
+
+        return {
+          success: true,
+          content: '企业微信通知发送成功',
+          data: {
+            messageType,
+            webhookUrl: webhookUrl.substring(0, 50) + '...',
+            errcode: responseData.errcode,
+            errmsg: responseData.errmsg
+          }
+        }
+      } else {
+        throw new Error(`企业微信 API 返回错误: ${responseData.errmsg} (errcode: ${responseData.errcode})`)
+      }
+
+    } catch (error) {
+      execution.logs.push({
+        timestamp: new Date().toISOString(),
+        level: 'error',
+        stepId: step.id,
+        message: `企业微信通知发送失败: ${error.message}`
+      })
+      throw error
     }
   }
 

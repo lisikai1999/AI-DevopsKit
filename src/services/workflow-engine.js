@@ -26,7 +26,10 @@ export const ActionType = {
   CONDITION: 'condition',
   PARALLEL: 'parallel',
   DELAY: 'delay',
-  WEBHOOK: 'webhook'
+  WEBHOOK: 'webhook',
+  JENKINS_EXECUTE: 'jenkins_execute',
+  AWS_ECS_CHECK: 'aws_ecs_check',
+  WEWORK_NOTIFICATION: 'wework_notification'
 }
 
 export const ActionTypeInfo = {
@@ -95,6 +98,24 @@ export const ActionTypeInfo = {
     description: '调用外部 Webhook',
     icon: '🔗',
     category: '集成'
+  },
+  [ActionType.JENKINS_EXECUTE]: {
+    name: 'Jenkins 任务执行',
+    description: '触发并监控 Jenkins 构建任务',
+    icon: '🏗️',
+    category: '集成'
+  },
+  [ActionType.AWS_ECS_CHECK]: {
+    name: 'AWS ECS 服务检查',
+    description: '检查 AWS ECS 服务更新状态',
+    icon: '☁️',
+    category: '集成'
+  },
+  [ActionType.WEWORK_NOTIFICATION]: {
+    name: '企业微信通知',
+    description: '通过企业微信机器人发送通知',
+    icon: '💬',
+    category: '通知'
   }
 }
 

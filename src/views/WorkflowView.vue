@@ -357,6 +357,183 @@
                               </el-form-item>
                             </div>
 
+                            <div v-else-if="step.actionType === 'jenkins_execute'" class="step-config">
+                              <el-divider content-position="left">Jenkins 连接配置</el-divider>
+                              <el-form-item label="Jenkins URL">
+                                <el-input v-model="step.config.jenkinsUrl" placeholder="https://jenkins.example.com" />
+                              </el-form-item>
+                              <el-form-item label="Job 名称">
+                                <el-input v-model="step.config.jobName" placeholder="my-job-name" />
+                              </el-form-item>
+                              <el-form-item label="用户名 (可选)">
+                                <el-input v-model="step.config.username" placeholder="admin" />
+                              </el-form-item>
+                              <el-form-item label="API Token (可选)">
+                                <el-input
+                                  v-model="step.config.apiToken"
+                                  type="password"
+                                  placeholder="jenkins-api-token"
+                                  show-password
+                                />
+                              </el-form-item>
+
+                              <el-divider content-position="left">执行配置</el-divider>
+                              <el-form-item label="等待构建完成">
+                                <el-switch v-model="step.config.waitForBuild" />
+                              </el-form-item>
+                              <el-form-item v-if="step.config.waitForBuild" label="轮询间隔 (毫秒)">
+                                <el-input-number
+                                  v-model="step.config.pollInterval"
+                                  :min="1000"
+                                  :max="300000"
+                                  :step="1000"
+                                />
+                              </el-form-item>
+                              <el-form-item v-if="step.config.waitForBuild" label="超时时间 (毫秒)">
+                                <el-input-number
+                                  v-model="step.config.timeout"
+                                  :min="60000"
+                                  :max="86400000"
+                                  :step="10000"
+                                />
+                              </el-form-item>
+
+                              <el-divider content-position="left">构建参数 (JSON)</el-divider>
+                              <el-form-item label="参数">
+                                <el-input
+                                  v-model="stepConfigParamsJson"
+                                  type="textarea"
+                                  :rows="3"
+                                  placeholder='{"param1": "value1", "param2": "value2"}'
+                                />
+                              </el-form-item>
+                            </div>
+
+                            <div v-else-if="step.actionType === 'aws_ecs_check'" class="step-config">
+                              <el-divider content-position="left">ECS 服务配置</el-divider>
+                              <el-form-item label="AWS 区域">
+                                <el-select v-model="step.config.region" style="width: 100%">
+                                  <el-option label="US East (N. Virginia)" value="us-east-1" />
+                                  <el-option label="US West (Oregon)" value="us-west-2" />
+                                  <el-option label="EU (Ireland)" value="eu-west-1" />
+                                  <el-option label="Asia Pacific (Tokyo)" value="ap-northeast-1" />
+                                  <el-option label="Asia Pacific (Singapore)" value="ap-southeast-1" />
+                                  <el-option label="China (Beijing)" value="cn-north-1" />
+                                  <el-option label="China (Ningxia)" value="cn-northwest-1" />
+                                </el-select>
+                              </el-form-item>
+                              <el-form-item label="集群名称">
+                                <el-input v-model="step.config.cluster" placeholder="my-cluster" />
+                              </el-form-item>
+                              <el-form-item label="服务名称">
+                                <el-input v-model="step.config.serviceName" placeholder="my-service" />
+                              </el-form-item>
+                              <el-form-item label="期望运行任务数 (可选)">
+                                <el-input-number
+                                  v-model="step.config.expectedCount"
+                                  :min="0"
+                                  :max="1000"
+                                  placeholder="留空使用服务当前 desired count"
+                                />
+                              </el-form-item>
+
+                              <el-divider content-position="left">检查配置</el-divider>
+                              <el-form-item label="检查间隔 (毫秒)">
+                                <el-input-number
+                                  v-model="step.config.checkInterval"
+                                  :min="5000"
+                                  :max="300000"
+                                  :step="5000"
+                                />
+                              </el-form-item>
+                              <el-form-item label="最大重试次数">
+                                <el-input-number
+                                  v-model="step.config.maxRetries"
+                                  :min="1"
+                                  :max="100"
+                                />
+                              </el-form-item>
+
+                              <el-divider content-position="left">AWS 凭证 (可选)</el-divider>
+                              <el-form-item label="Access Key ID">
+                                <el-input
+                                  v-model="step.config.accessKeyId"
+                                  placeholder="AKIAIOSFODNN7EXAMPLE"
+                                />
+                              </el-form-item>
+                              <el-form-item label="Secret Access Key">
+                                <el-input
+                                  v-model="step.config.secretAccessKey"
+                                  type="password"
+                                  placeholder="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+                                  show-password
+                                />
+                              </el-form-item>
+                            </div>
+
+                            <div v-else-if="step.actionType === 'wework_notification'" class="step-config">
+                              <el-divider content-position="left">机器人配置</el-divider>
+                              <el-form-item label="Webhook URL">
+                                <el-input
+                                  v-model="step.config.webhookUrl"
+                                  placeholder="https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxx"
+                                />
+                              </el-form-item>
+                              <el-form-item label="消息类型">
+                                <el-select v-model="step.config.messageType" style="width: 100%">
+                                  <el-option label="文本消息" value="text" />
+                                  <el-option label="Markdown 消息" value="markdown" />
+                                  <el-option label="图文消息" value="news" />
+                                  <el-option label="模板卡片" value="template_card" />
+                                </el-select>
+                              </el-form-item>
+
+                              <el-divider content-position="left">消息内容</el-divider>
+                              <el-form-item label="消息内容">
+                                <el-input
+                                  v-model="step.config.content"
+                                  type="textarea"
+                                  :rows="4"
+                                  placeholder="输入消息内容... (支持变量占位符: {{variableName}})"
+                                />
+                              </el-form-item>
+
+                              <template v-if="step.config.messageType === 'news' || step.config.messageType === 'template_card'">
+                                <el-form-item label="标题">
+                                  <el-input v-model="step.config.title" placeholder="消息标题" />
+                                </el-form-item>
+                                <el-form-item label="描述">
+                                  <el-input
+                                    v-model="step.config.description"
+                                    type="textarea"
+                                    :rows="2"
+                                    placeholder="消息描述"
+                                  />
+                                </el-form-item>
+                              </template>
+
+                              <template v-if="step.config.messageType === 'news'">
+                                <el-form-item label="图片 URL">
+                                  <el-input v-model="step.config.picUrl" placeholder="https://example.com/image.png" />
+                                </el-form-item>
+                              </template>
+
+                              <el-form-item label="跳转链接 (可选)">
+                                <el-input v-model="step.config.url" placeholder="https://example.com" />
+                              </el-form-item>
+
+                              <el-divider content-position="left">@提及配置</el-divider>
+                              <el-form-item label="@所有人">
+                                <el-switch v-model="step.config.mentionAll" />
+                              </el-form-item>
+                              <el-form-item v-if="!step.config.mentionAll" label="@提及用户 (逗号分隔)">
+                                <el-input
+                                  v-model="step.config.mentionsText"
+                                  placeholder="user1,user2,user3"
+                                />
+                              </el-form-item>
+                            </div>
+
                             <div v-else class="step-config">
                               <el-alert title="此步骤类型在可视化编辑器中完全配置" type="info" :closable="false" />
                             </div>
@@ -793,6 +970,50 @@ const activeExecutionLogs = computed(() => {
   return workflowStore.executionLogs
 })
 
+const stepConfigParamsJson = computed({
+  get() {
+    if (selectedStepId.value && editingWorkflow.value) {
+      const step = editingWorkflow.value.steps?.find(s => s.id === selectedStepId.value)
+      if (step?.config?.parameters) {
+        return JSON.stringify(step.config.parameters, null, 2)
+      }
+    }
+    return '{}'
+  },
+  set(val) {
+    if (selectedStepId.value && editingWorkflow.value) {
+      const step = editingWorkflow.value.steps?.find(s => s.id === selectedStepId.value)
+      if (step) {
+        try {
+          step.config.parameters = JSON.parse(val)
+        } catch {
+          step.config.parameters = {}
+        }
+      }
+    }
+  }
+})
+
+const mentionsText = computed({
+  get() {
+    if (selectedStepId.value && editingWorkflow.value) {
+      const step = editingWorkflow.value.steps?.find(s => s.id === selectedStepId.value)
+      if (step?.config?.mentions && Array.isArray(step.config.mentions)) {
+        return step.config.mentions.join(',')
+      }
+    }
+    return ''
+  },
+  set(val) {
+    if (selectedStepId.value && editingWorkflow.value) {
+      const step = editingWorkflow.value.steps?.find(s => s.id === selectedStepId.value)
+      if (step) {
+        step.config.mentions = val ? val.split(',').map(s => s.trim()).filter(Boolean) : []
+      }
+    }
+  }
+})
+
 onMounted(() => {
   workflowStore.loadTemplates()
   workflowStore.loadWorkflows()
@@ -903,6 +1124,37 @@ function getDefaultConfig(actionType) {
       condition: '',
       onTrue: [],
       onFalse: []
+    },
+    [ActionType.JENKINS_EXECUTE]: {
+      jenkinsUrl: '',
+      jobName: '',
+      username: '',
+      apiToken: '',
+      parameters: {},
+      waitForBuild: true,
+      pollInterval: 5000,
+      timeout: 300000
+    },
+    [ActionType.AWS_ECS_CHECK]: {
+      region: 'cn-north-1',
+      cluster: '',
+      serviceName: '',
+      expectedCount: null,
+      checkInterval: 30000,
+      maxRetries: 10,
+      accessKeyId: '',
+      secretAccessKey: ''
+    },
+    [ActionType.WEWORK_NOTIFICATION]: {
+      webhookUrl: '',
+      messageType: 'text',
+      content: '',
+      title: '',
+      description: '',
+      url: '',
+      picUrl: '',
+      mentions: [],
+      mentionAll: false
     }
   }
   return defaults[actionType] || {}
