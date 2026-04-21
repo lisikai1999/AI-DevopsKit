@@ -5,7 +5,7 @@ import { defineStore } from 'pinia'
  * 历史记录项的结构说明（替代TS的interface）
  * @typedef {Object} HistoryItem
  * @property {string} id - 唯一标识
- * @property {'jenkinsfile' | 'dockerfile'} type - 类型
+ * @property {'jenkinsfile' | 'dockerfile' | 'billing' | 'log'} type - 类型
  * @property {string} title - 标题
  * @property {string} content - 内容
  * @property {string} [result] - 结果（可选）
@@ -16,6 +16,7 @@ export const useAppStore = defineStore('app', () => {
   const isDarkMode = ref(false)
   // 移除TS的类型注解，直接初始化空数组
   const history = ref([])
+  const historyLoaded = ref(false)
   
   const toggleDarkMode = () => {
     isDarkMode.value = !isDarkMode.value
@@ -42,11 +43,15 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
   }
   
-  const loadHistory = () => {
+  const loadHistory = (force = false) => {
+    if (!force && historyLoaded.value) {
+      return
+    }
     const saved = localStorage.getItem('ai-devops-history')
     if (saved) {
       history.value = JSON.parse(saved)
     }
+    historyLoaded.value = true
   }
   
   const clearHistory = () => {
@@ -63,6 +68,23 @@ export const useAppStore = defineStore('app', () => {
     localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
   }
   
+  /**
+   * 更新指定id的历史记录
+   * @param {string} id - 历史记录的id
+   * @param {Partial<HistoryItem>} updates - 更新的内容
+   */
+  const updateHistoryItem = (id, updates) => {
+    const index = history.value.findIndex(item => item.id === id)
+    if (index !== -1) {
+      history.value[index] = {
+        ...history.value[index],
+        ...updates,
+        createdAt: new Date().toISOString()
+      }
+      localStorage.setItem('ai-devops-history', JSON.stringify(history.value))
+    }
+  }
+  
   return {
     isDarkMode,
     history,
@@ -70,6 +92,7 @@ export const useAppStore = defineStore('app', () => {
     addToHistory,
     loadHistory,
     clearHistory,
-    deleteHistoryItem
+    deleteHistoryItem,
+    updateHistoryItem
   }
 })
