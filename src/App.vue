@@ -52,7 +52,10 @@
             <el-icon><Clock /></el-icon>
             <span>历史记录</span>
           </el-menu-item>
-          
+          <el-menu-item index="/knowledge">
+            <el-icon><Reading /></el-icon>
+            <span>知识库</span>
+          </el-menu-item>
 
         </el-menu>
         
@@ -93,7 +96,7 @@
 
 <script setup>
   import { computed, watch, onMounted } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search, Share } from '@element-plus/icons-vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search, Share, Reading } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 

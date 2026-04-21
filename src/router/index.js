@@ -49,6 +49,16 @@ const router = createRouter({
       name: 'workflow',
       component: () => import('../views/WorkflowView.vue'),
     },
+    {
+      path: '/knowledge',
+      name: 'knowledge',
+      component: () => import('../views/KnowledgeBaseView.vue'),
+    },
+    {
+      path: '/knowledge/:id',
+      name: 'knowledge-detail',
+      component: () => import('../views/KnowledgeDetailView.vue'),
+    },
   ],
 })
 

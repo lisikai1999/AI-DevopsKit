@@ -112,7 +112,7 @@
           </el-card>
         </el-col>
         
-        <el-col :span="16">
+        <el-col :span="12">
           <el-card class="content-card result-card">
             <template #header>
               <div class="card-header">
@@ -149,6 +149,10 @@
             />
           </el-card>
         </el-col>
+        
+        <el-col :span="4">
+          <KnowledgeRecommend page-type="cicd" />
+        </el-col>
       </el-row>
     </div>
   </div>
@@ -161,6 +165,7 @@
   import { analyzeError, formatUserMessage } from '@/utils/errorHandler'
   import { Tools, Mic, CopyDocument, Download } from '@element-plus/icons-vue'
   import MonacoEditor from '@/components/MonacoEditor.vue'
+  import KnowledgeRecommend from '@/components/KnowledgeRecommend.vue'
   import { useHistory } from '@/composables/useHistory'
   import { useClipboard } from '@/composables/useClipboard'
 

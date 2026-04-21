@@ -10,7 +10,7 @@
 
     <div class="page-content">
       <el-row :gutter="24">
-        <el-col :span="12">
+        <el-col :span="10">
           <el-card class="content-card">
             <template #header>
               <div class="card-header">
@@ -46,7 +46,7 @@
           </el-card>
         </el-col>
         
-        <el-col :span="12">
+        <el-col :span="10">
           <el-card v-if="analysisResult" class="content-card">
             <template #header>
               <div class="card-header">
@@ -89,6 +89,10 @@
             </div>
           </el-card>
         </el-col>
+        
+        <el-col :span="4">
+          <KnowledgeRecommend page-type="docker" />
+        </el-col>
       </el-row>
       
       <div v-if="analysisResult && analysisResult.optimizedContent" class="optimized-section">
@@ -127,6 +131,7 @@
   import { analyzeError, formatUserMessage } from '@/utils/errorHandler'
   import MonacoEditor from '@/components/MonacoEditor.vue'
   import EChartsWrapper from '@/components/EChartsWrapper.vue'
+  import KnowledgeRecommend from '@/components/KnowledgeRecommend.vue'
   import { Document, Search, CopyDocument, Download } from '@element-plus/icons-vue'
   import { sampleDockerfiles } from '@/utils/dockerfile-analyzer'
   import { useHistory } from '@/composables/useHistory'
