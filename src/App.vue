@@ -18,27 +18,50 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="/jenkinsfile">
-            <el-icon><Tools /></el-icon>
-            <span>Jenkinsfile 生成器</span>
-          </el-menu-item>
+          <el-sub-menu index="cicd-menu">
+            <template #title>
+              <el-icon><Tools /></el-icon>
+              <span>CI/CD 工具</span>
+            </template>
+            <el-menu-item index="/cicd">
+              <el-icon><Edit /></el-icon>
+              <span>CI/CD 生成器</span>
+            </el-menu-item>
+            <el-menu-item index="/cicd-scanner">
+              <el-icon><Search /></el-icon>
+              <span>CI/CD 配置诊断</span>
+            </el-menu-item>
+          </el-sub-menu>
           <el-menu-item index="/dockerfile">
             <el-icon><Document /></el-icon>
             <span>Dockerfile 分析器</span>
           </el-menu-item>
-          <el-menu-item index="/billing">
-            <el-icon><TrendCharts /></el-icon>
-            <span>账单分析</span>
+          <el-menu-item index="/knowledge">
+            <el-icon><Reading /></el-icon>
+            <span>知识库</span>
           </el-menu-item>
-          <el-menu-item index="/logs">
-            <el-icon><Failed /></el-icon>
-            <span>日志翻译</span>
-          </el-menu-item>
-          <el-menu-item index="/history">
-            <el-icon><Clock /></el-icon>
-            <span>历史记录</span>
-          </el-menu-item>
-          
+          <el-sub-menu index="tools-menu">
+            <template #title>
+              <el-icon><Tools /></el-icon>
+              <span>更多工具</span>
+            </template>
+            <el-menu-item index="/billing">
+              <el-icon><TrendCharts /></el-icon>
+              <span>账单分析</span>
+            </el-menu-item>
+            <el-menu-item index="/logs">
+              <el-icon><Failed /></el-icon>
+              <span>日志翻译</span>
+            </el-menu-item>
+            <el-menu-item index="/workflow">
+              <el-icon><Share /></el-icon>
+              <span>工作流编排</span>
+            </el-menu-item>
+            <el-menu-item index="/history">
+              <el-icon><Clock /></el-icon>
+              <span>历史记录</span>
+            </el-menu-item>
+          </el-sub-menu>
 
         </el-menu>
         
@@ -79,7 +102,7 @@
 
 <script setup>
   import { computed, watch, onMounted } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts } from '@element-plus/icons-vue'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search, Share, Reading } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
   import { aiService } from '@/services/ai-service'
 
@@ -119,6 +142,9 @@
       }
     }
     applyDarkMode(appStore.isDarkMode)
+    
+    // 应用启动时加载历史记录
+    appStore.loadHistory()
   })
 </script>
 
@@ -154,6 +180,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
   }
 
   .app-title {
