@@ -899,6 +899,8 @@ const creating = ref(false)
 
 const actionTypeInfo = computed(() => ActionTypeInfo)
 
+const variableList = ref([])
+
 const stepTimeoutSeconds = computed({
   get() {
     if (selectedStepId.value && editingWorkflow.value) {
@@ -913,23 +915,6 @@ const stepTimeoutSeconds = computed({
       if (step) {
         step.timeout = val * 1000
       }
-    }
-  }
-})
-
-const variableList = computed({
-  get() {
-    if (!editingWorkflow.value) return []
-    return Object.entries(editingWorkflow.value.variables || {}).map(([key, value]) => ({ key, value }))
-  },
-  set(val) {
-    if (editingWorkflow.value) {
-      editingWorkflow.value.variables = {}
-      val.forEach(item => {
-        if (item.key) {
-          editingWorkflow.value.variables[item.key] = item.value
-        }
-      })
     }
   }
 })
@@ -1492,6 +1477,25 @@ function confirmDeleteHistory(execution) {
     ElMessage.success('执行记录已删除')
   }).catch(() => {})
 }
+
+watch(editingWorkflow, (newWorkflow) => {
+  if (newWorkflow) {
+    variableList.value = Object.entries(newWorkflow.variables || {}).map(([key, value]) => ({ key, value }))
+  } else {
+    variableList.value = []
+  }
+})
+
+watch(variableList, (newList) => {
+  if (editingWorkflow.value) {
+    editingWorkflow.value.variables = {}
+    newList.forEach(item => {
+      if (item.key) {
+        editingWorkflow.value.variables[item.key] = item.value
+      }
+    })
+  }
+}, { deep: true })
 
 watch(activeTab, (newVal) => {
   if (newVal !== 'edit') {
