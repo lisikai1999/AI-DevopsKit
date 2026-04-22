@@ -1701,6 +1701,922 @@ stages:
   }
 
   /**
+   * AI辅助生成知识文章
+   * @param {Object} params - 生成参数
+   * @param {string} params.inputType - 输入类型：'topic'（主题）或 'content'（配置/日志/报错）
+   * @param {string} params.input - 用户输入的内容
+   * @param {string} [params.category] - 可选的目标分类提示
+   * @returns {Promise<AIResponse>} AI响应结果，content为JSON字符串：{ title, summary, tags, difficulty, content, category }
+   */
+  async generateKnowledgeArticle(params) {
+    if (this.#isMockMode) {
+      return this.#mockKnowledgeArticle(params)
+    }
+
+    try {
+      const { inputType, input, category } = params
+      
+      let prompt
+      if (inputType === 'topic') {
+        prompt = `请根据以下主题，生成一篇完整的技术知识文章：
+
+主题：${input}
+${category ? `目标分类：${category}` : ''}
+
+请生成一个结构完整的知识文章，以JSON格式返回，格式如下：
+{
+  "title": "文章标题（简洁明了）",
+  "summary": "文章摘要，100-200字概括主要内容",
+  "tags": ["标签1", "标签2", "标签3"],
+  "difficulty": "初级|中级|高级",
+  "readTime": "阅读时间，如：10 分钟",
+  "content": "Markdown格式的完整文章内容，包含：
+1. 清晰的章节结构（## 标题，### 子标题）
+2. 代码示例（使用```）
+3. 表格说明（使用|分隔）
+4. 最佳实践建议
+5. 常见问题解答",
+  "category": "建议的分类ID（如：cicd-best-practices, docker-optimization, kubernetes-ops, cloud-architecture, security-compliance 或 custom）"
+}
+
+请确保：
+1. 内容专业且实用，适合DevOps工程师参考
+2. 代码示例准确可运行
+3. 标签与分类匹配
+4. 难度评估合理`
+      } else {
+        prompt = `请分析以下内容（配置/日志/报错信息），将其整理成一篇结构化的知识文章：
+
+${input}
+
+${category ? `目标分类：${category}` : ''}
+
+请分析内容类型，提取关键信息，生成一篇有价值的知识文章。以JSON格式返回：
+{
+  "title": "文章标题（概括内容主题）",
+  "summary": "文章摘要，100-200字概括主要内容",
+  "tags": ["标签1", "标签2", "标签3"],
+  "difficulty": "初级|中级|高级",
+  "readTime": "阅读时间，如：8 分钟",
+  "content": "Markdown格式的完整文章内容，应包含：
+1. 问题/场景描述
+2. 原因分析
+3. 解决方案
+4. 代码示例或配置片段
+5. 最佳实践建议
+6. 预防措施",
+  "category": "建议的分类ID（如：cicd-best-practices, docker-optimization, kubernetes-ops, cloud-architecture, security-compliance 或 custom）"
+}
+
+请确保：
+1. 准确分析用户提供的内容
+2. 给出实用的解决方案
+3. 代码示例准确可运行
+4. 标签与分类匹配
+5. 难度评估合理`
+      }
+
+      const response = await this.#callAI(prompt)
+      
+      let parsedResponse
+      try {
+        parsedResponse = JSON.parse(response.content)
+      } catch (parseError) {
+        console.warn('[AIService] 知识文章生成结果JSON解析失败，尝试使用原始内容', {
+          error: parseError.message,
+          rawContent: response.content.substring(0, 300)
+        })
+        
+        parsedResponse = {
+          title: inputType === 'topic' ? input : '技术知识文章',
+          summary: 'AI生成的知识文章',
+          tags: ['技术'],
+          difficulty: '中级',
+          readTime: '10 分钟',
+          content: response.content,
+          category: 'custom'
+        }
+      }
+
+      return {
+        success: true,
+        content: JSON.stringify(parsedResponse, null, 2)
+      }
+    } catch (error) {
+      return this.#createErrorResponse(
+        error,
+        `生成知识文章失败: ${error instanceof AppError ? error.userMessage : '请检查网络连接和 API 配置后重试'}`
+      )
+    }
+  }
+
+  /**
+   * 模拟生成知识文章（私有）
+   * @param {Object} params - 生成参数
+   * @returns {AIResponse} 模拟响应结果
+   */
+  #mockKnowledgeArticle(params) {
+    const { inputType, input } = params
+    
+    const mockArticles = {
+      topic: {
+        'docker': {
+          title: 'Docker 容器化最佳实践指南',
+          summary: '深入了解Docker容器化的核心概念和最佳实践，包括镜像构建优化、容器安全、网络配置和持久化存储等关键主题。',
+          tags: ['Docker', '容器化', '最佳实践', 'DevOps'],
+          difficulty: '中级',
+          readTime: '12 分钟',
+          content: `## Docker 容器化最佳实践指南
+
+### 1. 镜像构建优化
+
+#### 使用多阶段构建
+多阶段构建可以显著减小最终镜像的体积，只包含运行时必需的文件。
+
+\`\`\`dockerfile
+# 构建阶段
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY . .
+RUN npm run build
+
+# 生产阶段
+FROM node:18-alpine
+WORKDIR /app
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+COPY --from=builder --chown=appuser:appgroup /app/dist ./dist
+COPY --from=builder --chown=appuser:appgroup /app/node_modules ./node_modules
+USER appuser
+EXPOSE 3000
+CMD ["node", "dist/index.js"]
+\`\`\`
+
+#### 合理安排层顺序
+将变化频率低的指令放在前面，利用Docker的层缓存机制：
+
+| 指令顺序 | 说明 |
+|----------|------|
+| FROM | 基础镜像 |
+| ENV/LABEL | 元数据 |
+| RUN apk add... | 安装依赖 |
+| COPY package*.json | 依赖定义 |
+| RUN npm install | 安装依赖 |
+| COPY . | 应用代码 |
+| CMD/ENTRYPOINT | 启动命令 |
+
+### 2. 容器安全最佳实践
+
+#### 以非root用户运行
+始终创建非root用户来运行应用：
+
+\`\`\`dockerfile
+FROM alpine:3.18
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+WORKDIR /app
+COPY --chown=appuser:appgroup . .
+USER appuser
+CMD ["node", "app.js"]
+\`\`\`
+
+#### 扫描镜像漏洞
+使用工具扫描已知漏洞：
+- **Trivy**: 简单易用的漏洞扫描器
+- **Clair**: 深度漏洞分析
+- **Snyk**: 开发者友好的安全工具
+
+\`\`\`bash
+trivy image myapp:latest
+\`\`\`
+
+### 3. 网络配置
+
+#### 使用自定义网络
+创建自定义网络进行服务间通信：
+
+\`\`\`bash
+# 创建网络
+docker network create app-network
+
+# 运行服务
+docker run -d --name db --network app-network postgres:13
+docker run -d --name api --network app-network myapi
+\`\`\`
+
+#### 限制端口监听范围
+只监听必要的端口，避免暴露到公网：
+
+\`\`\`bash
+# 只监听localhost
+docker run -d -p 127.0.0.1:8080:80 nginx
+\`\`\`
+
+### 4. 持久化存储
+
+#### 使用Volume而非Bind Mounts
+Volume由Docker管理，提供更好的性能和隔离：
+
+\`\`\`dockerfile
+VOLUME /app/data
+\`\`\`
+
+#### 命名Volume管理
+明确命名Volume以便于管理：
+
+\`\`\`bash
+docker run -d \
+  --name db \
+  -v postgres_data:/var/lib/postgresql/data \
+  postgres:13
+\`\`\`
+
+### 5. 资源限制
+
+#### 限制CPU和内存
+防止单个容器耗尽宿主机资源：
+
+\`\`\`bash
+docker run -d \
+  --memory=512m \
+  --cpus=0.5 \
+  --pids-limit=100 \
+  myapp:latest
+\`\`\`
+
+### 常见问题解答
+
+**Q: 如何减小镜像体积？**
+A: 使用多阶段构建、选择alpine基础镜像、合并RUN指令、清理缓存。
+
+**Q: 容器之间如何通信？**
+A: 使用自定义Docker网络，通过容器名称或网络别名互相访问。
+
+**Q: 如何处理容器日志？**
+A: 使用Docker日志驱动，或配置ELK Stack进行日志聚合分析。`,
+          category: 'docker-optimization'
+        },
+        'kubernetes': {
+          title: 'Kubernetes Pod 故障排查指南',
+          summary: '掌握Kubernetes Pod故障排查的核心方法，从常见问题到高级诊断技巧，帮助你快速定位和解决Pod运行时问题。',
+          tags: ['Kubernetes', 'Pod', '故障排查', '运维'],
+          difficulty: '中级',
+          readTime: '15 分钟',
+          content: `## Kubernetes Pod 故障排查指南
+
+### Pod 生命周期状态
+
+| 状态 | 描述 | 常见原因 |
+|------|------|----------|
+| Pending | Pod已被接受，容器尚未创建 | 资源不足、镜像拉取问题、PVC未绑定 |
+| Running | Pod已绑定节点，所有容器已创建 | 正常运行 |
+| Succeeded | 所有容器成功终止 | 一次性任务完成 |
+| Failed | 至少一个容器异常退出 | 应用崩溃、配置错误 |
+| Unknown | 无法获取状态 | 节点通信问题 |
+
+### 第一步：获取基本信息
+
+\`\`\`bash
+# 查看Pod列表
+kubectl get pods
+
+# 查看更多信息（包含节点）
+kubectl get pods -o wide
+
+# 查看Pod详细信息（包含事件）
+kubectl describe pod <pod-name>
+
+# 持续观察Pod状态
+kubectl get pods -w
+\`\`\`
+
+### 常见问题排查
+
+#### 1. Pod 卡在 Pending
+
+**检查事件：**
+\`\`\`bash
+kubectl describe pod <pod-name>
+\`\`\`
+
+**常见原因：**
+
+**a) 资源不足**
+- 节点CPU或内存不足
+- 检查节点资源：\`kubectl describe nodes\`
+
+**b) 镜像拉取失败**
+检查事件中的错误信息：
+- ImagePullBackOff
+- ErrImagePull
+- 验证镜像名称和标签
+- 检查私有仓库凭据
+
+\`\`\`bash
+# 检查Secret是否存在
+kubectl get secrets
+
+# 测试手动拉取
+kubectl run test --image=private/image --rm -it
+\`\`\`
+
+**c) PVC 未绑定**
+- 检查PersistentVolumeClaim状态
+- 验证StorageClass配置
+
+#### 2. Pod 不断重启 (CrashLoopBackOff)
+
+**查看日志：**
+\`\`\`bash
+# 查看当前日志
+kubectl logs <pod-name>
+
+# 查看已退出容器的日志
+kubectl logs --previous <pod-name>
+
+# 持续查看日志
+kubectl logs -f <pod-name>
+\`\`\`
+
+**常见原因：**
+
+**a) 应用启动错误**
+- 配置文件缺失
+- 依赖服务不可用
+- 权限问题
+
+**b) 探针配置问题**
+- livenessProbe 失败
+- 探针超时时间过短
+- 初始延迟不足
+
+\`\`\`yaml
+# 优化前
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 5  # 可能太短
+
+# 优化后
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8080
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+\`\`\`
+
+**c) 资源限制问题**
+- 内存限制导致OOMKilled
+- 检查Pod事件中的退出代码
+
+\`\`\`bash
+# 查看退出代码
+kubectl get pod <pod-name> -o jsonpath='{.status.containerStatuses[0].lastState.terminated.exitCode}'
+\`\`\`
+
+#### 3. Pod 无法访问服务
+
+**检查网络：**
+
+\`\`\`bash
+# 查看Service端点
+kubectl get endpoints
+
+# 检查Pod标签匹配
+kubectl get pods --show-labels
+
+# 临时调试Pod
+kubectl run -it --rm debug --image=nicolaka/netshoot -- bash
+
+# 在debug Pod中测试
+curl http://<service-name>.<namespace>.svc.cluster.local
+\`\`\`
+
+**检查网络策略：**
+- 是否有NetworkPolicy阻止访问
+- 验证Pod标签选择器
+
+### 高级诊断技巧
+
+#### 1. 进入容器调试
+
+\`\`\`bash
+# 进入默认容器
+kubectl exec -it <pod-name> -- /bin/bash
+
+# 指定容器
+kubectl exec -it <pod-name> -c <container-name> -- /bin/sh
+
+# 执行命令
+kubectl exec <pod-name> -- ls -la
+\`\`\`
+
+#### 2. 使用临时容器（Kubernetes 1.23+）
+
+\`\`\`bash
+# 向运行中的Pod添加调试容器
+kubectl debug -it <pod-name> --image=nicolaka/netshoot --share-processes
+\`\`\`
+
+#### 3. 检查节点问题
+
+\`\`\`bash
+# 查看节点状态
+kubectl get nodes
+
+# 查看节点详细信息
+kubectl describe node <node-name>
+
+# 查看节点事件
+kubectl get events --field-selector involvedObject.kind=Node
+\`\`\`
+
+### 故障排查流程图
+
+1. **获取状态** → \`kubectl get pods\`
+2. **查看事件** → \`kubectl describe pod\`
+3. **检查日志** → \`kubectl logs --previous\`
+4. **网络诊断** → 使用debug Pod
+5. **节点检查** → 验证节点状态
+
+### 预防措施
+
+- 设置合理的资源requests和limits
+- 配置适当的探针
+- 使用InitContainer检查依赖
+- 实施健康检查端点
+- 配置PodDisruptionBudget
+
+### 常见问题解答
+
+**Q: ImagePullBackOff 是什么意思？**
+A: 表示镜像拉取失败，Kubernetes会在一段时间后重试。常见原因包括镜像不存在、凭据问题或网络问题。
+
+**Q: 如何查看Pod被调度到哪个节点？**
+A: 使用 \`kubectl get pods -o wide\` 查看NODE列。
+
+**Q: 容器退出代码137表示什么？**
+A: 表示容器被OOM（内存不足）杀掉。需要增加内存limits或优化应用内存使用。`,
+          category: 'kubernetes-ops'
+        },
+        'cicd': {
+          title: 'CI/CD 流水线设计模式与最佳实践',
+          summary: '深入理解CI/CD流水线的核心设计模式，学习如何构建高效、可靠、可维护的持续集成和持续部署流程。',
+          tags: ['CI/CD', '流水线', '设计模式', '最佳实践'],
+          difficulty: '中级',
+          readTime: '10 分钟',
+          content: `## CI/CD 流水线设计模式与最佳实践
+
+### 核心设计原则
+
+#### 1. 快速反馈循环
+构建时间应该控制在10分钟以内，超过这个时间会降低开发效率。
+
+**优化策略：**
+- 使用缓存机制减少重复下载
+- 并行执行独立的测试任务
+- 增量构建（只构建变更模块）
+
+#### 2. 一次构建，多次部署
+遵循"构建一次，到处运行"原则，避免在不同环境重复构建。
+
+**最佳实践：**
+- 使用Docker镜像打包应用
+- 将构建产物上传到制品仓库
+- 不同环境使用相同的构建产物
+
+#### 3. 流水线即代码
+将流水线定义存储在版本控制系统中，与应用代码一起管理。
+
+**优势：**
+- 版本历史追踪
+- 代码审查流程
+- 回滚能力
+
+### 流水线阶段设计
+
+#### 典型阶段结构
+
+\`\`\`yaml
+stages:
+  - build        # 构建
+  - test         # 测试
+  - scan         # 安全扫描
+  - package      # 打包
+  - deploy-dev   # 部署开发环境
+  - deploy-staging # 部署预发布
+  - deploy-prod  # 部署生产
+\`\`\`
+
+#### 阶段详解
+
+**1. Build 阶段**
+- 编译代码
+- 安装依赖
+- 生成构建产物
+
+**2. Test 阶段**
+- 单元测试
+- 集成测试
+- 端到端测试（可选）
+
+**3. Security Scan 阶段**
+- 依赖漏洞扫描
+- 静态代码分析
+- 密钥检测
+
+**4. Package 阶段**
+- Docker镜像构建
+- Helm Chart打包
+- 上传制品仓库
+
+**5. Deploy 阶段**
+- 按环境依次部署
+- 蓝绿/金丝雀发布
+- 自动回滚机制
+
+### 并行与依赖管理
+
+#### 并行执行模式
+
+\`\`\`groovy
+// Jenkinsfile 并行示例
+stage('Test') {
+    parallel {
+        stage('Unit Tests') {
+            steps {
+                sh 'mvn test'
+            }
+        }
+        stage('Integration Tests') {
+            steps {
+                sh 'mvn verify'
+            }
+        }
+        stage('Security Scan') {
+            steps {
+                sh 'snyk test'
+            }
+        }
+    }
+}
+\`\`\`
+
+#### 依赖管理
+
+| 策略 | 适用场景 | 优点 | 缺点 |
+|------|----------|------|------|
+| 顺序执行 | 强依赖任务 | 简单直观 | 效率低 |
+| 并行执行 | 独立任务 | 效率高 | 需要协调 |
+| 按需触发 | 条件执行 | 节省资源 | 复杂度高 |
+
+### 发布策略
+
+#### 蓝绿部署
+同时运行两个版本，流量在两者间切换。
+
+**优点：**
+- 零停机部署
+- 瞬间回滚
+- 完整测试新版本
+
+**缺点：**
+- 资源成本翻倍
+
+#### 金丝雀发布
+逐步将流量从旧版本切换到新版本。
+
+**优点：**
+- 风险可控
+- 观察真实用户反馈
+- 问题影响范围小
+
+**缺点：**
+- 部署周期较长
+
+#### 滚动更新
+逐个替换实例，确保应用始终可用。
+
+**优点：**
+- 资源利用率高
+- 简单直观
+
+**缺点：**
+- 回滚较慢
+
+### 质量门禁
+
+#### 门禁配置示例
+
+\`\`\`groovy
+// Jenkinsfile 质量门禁
+stage('Quality Gate') {
+    steps {
+        timeout(time: 1, unit: 'HOURS') {
+            waitForQualityGate abortPipeline: true
+        }
+    }
+}
+\`\`\`
+
+#### 检查项
+
+| 检查项 | 工具 | 失败条件 |
+|--------|------|----------|
+| 单元测试覆盖率 | JaCoCo/istanbul | < 80% |
+| 代码质量 | SonarQube | 严重违规 |
+| 安全漏洞 | Snyk/Trivy | 高危漏洞 |
+| 构建产物 | 制品扫描 | 未签名 |
+
+### 常见问题解答
+
+**Q: 如何优化构建时间？**
+A: 使用缓存、并行执行、增量构建、优化Docker镜像层。
+
+**Q: 生产环境部署失败如何回滚？**
+A: 采用蓝绿或金丝雀发布策略，保留上一版本，快速切换流量。
+
+**Q: 如何处理敏感配置？**
+A: 使用密钥管理服务（Vault、Secrets Manager），不要硬编码到代码中。`,
+          category: 'cicd-best-practices'
+        }
+      },
+      content: {
+        'default': {
+          title: '配置与日志分析指南',
+          summary: '学习如何有效分析配置文件和日志信息，提取关键问题，理解错误原因，并掌握系统性的问题解决方法。',
+          tags: ['配置分析', '日志分析', '故障排查', '运维'],
+          difficulty: '中级',
+          readTime: '8 分钟',
+          content: `## 配置与日志分析指南
+
+### 配置文件分析
+
+#### 常见配置问题
+
+**1. 语法错误**
+- YAML缩进问题（非常常见）
+- JSON格式错误
+- 引号不匹配
+
+**2. 逻辑错误**
+- 配置项冲突
+- 依赖缺失
+- 路径错误
+
+**3. 环境差异**
+- 开发/测试/生产环境不一致
+- 硬编码本地路径
+- 缺少环境变量
+
+#### YAML 配置检查清单
+
+| 检查项 | 说明 |
+|--------|------|
+| 缩进 | 使用空格，不要用Tab，通常2或4空格 |
+| 冒号 | 键值对冒号后必须有空格 |
+| 列表 | 列表项使用减号，注意缩进层级 |
+| 引号 | 特殊字符需要引号包裹 |
+| 锚点 | &和*用于引用，注意定义位置 |
+
+#### 常见 YAML 错误示例
+
+\`\`\`yaml
+# ❌ 错误：冒号后无空格
+key:value
+
+# ✅ 正确
+key: value
+
+# ❌ 错误：缩进不一致
+items:
+  - item1
+   - item2  # 缩进多了一个空格
+
+# ✅ 正确
+items:
+  - item1
+  - item2
+\`\`\`
+
+### 日志分析方法
+
+#### 日志级别理解
+
+| 级别 | 含义 | 关注点 |
+|------|------|--------|
+| ERROR | 错误 | 立即关注，系统故障 |
+| WARN | 警告 | 潜在问题，需要监控 |
+| INFO | 信息 | 正常操作记录 |
+| DEBUG | 调试 | 详细调试信息 |
+| TRACE | 追踪 | 最详细的调用追踪 |
+
+#### 错误日志分析步骤
+
+**1. 识别关键错误**
+- 查找ERROR和WARN级别
+- 提取异常堆栈信息
+- 识别根本原因异常
+
+**2. 理解上下文**
+- 错误发生的时间
+- 相关操作
+- 影响范围
+
+**3. 关联分析**
+- 同一时间点的其他日志
+- 相关服务状态
+- 资源使用情况
+
+#### 常见错误模式
+
+\`\`\`
+# 连接超时
+java.net.SocketTimeoutException: connect timed out
+→ 原因：网络问题、服务未启动、防火墙阻止
+
+# 内存溢出
+java.lang.OutOfMemoryError: Java heap space
+→ 原因：内存限制不足、内存泄漏、大对象处理
+
+# 权限拒绝
+java.nio.file.AccessDeniedException: /path/to/file
+→ 原因：文件权限不足、运行用户错误
+
+# 依赖缺失
+ClassNotFoundException: com.example.SomeClass
+→ 原因：jar包缺失、版本不兼容、类路径错误
+\`\`\`
+
+### 实战案例分析
+
+#### 案例1：应用启动失败
+
+**错误日志：**
+\`\`\`
+Caused by: org.postgresql.util.PSQLException: 
+  Connection to localhost:5432 refused. 
+  Check that the hostname and port are correct 
+  and that the postmaster is accepting TCP/IP connections.
+\`\`\`
+
+**分析步骤：**
+1. 检查PostgreSQL服务是否运行
+2. 确认端口是否正确
+3. 验证防火墙规则
+4. 检查pg_hba.conf配置
+
+**解决方案：**
+\`\`\`bash
+# 检查服务状态
+systemctl status postgresql
+
+# 检查端口监听
+netstat -tlnp | grep 5432
+
+# 测试连接
+psql -h localhost -U postgres
+\`\`\`
+
+#### 案例2：Kubernetes Pod 启动失败
+
+**事件信息：**
+\`\`\`
+Events:
+  Type     Reason     Age   From               Message
+  ----     ------     ----  ----               -------
+  Normal   Scheduled  30s   default-scheduler  Successfully assigned default/myapp-xxx to node-1
+  Warning  Failed     28s   kubelet            Error: failed to start container "myapp": Error response from daemon: OCI runtime create failed: container_linux.go:380: starting container process caused: exec: "/app/start.sh": permission denied
+\`\`\`
+
+**分析：**
+- 容器启动时执行权限被拒绝
+- start.sh脚本没有执行权限
+
+**解决方案：**
+\`\`\`dockerfile
+# Dockerfile中添加执行权限
+RUN chmod +x /app/start.sh
+
+# 或在构建时设置
+COPY --chmod=755 start.sh /app/
+\`\`\`
+
+### 预防措施
+
+#### 配置管理
+- 使用配置验证工具
+- 实施配置版本控制
+- 建立配置变更审批流程
+
+#### 日志管理
+- 统一日志格式
+- 集中日志收集
+- 设置告警阈值
+
+#### 监控告警
+- 关键错误实时告警
+- 异常模式自动识别
+- 趋势分析预测
+
+### 工具推荐
+
+| 用途 | 工具 |
+|------|------|
+| 配置验证 | yamllint, jsonlint |
+| 日志分析 | grep, awk, jq |
+| 日志聚合 | ELK Stack, Loki |
+| 配置管理 | Ansible, Terraform |
+
+### 常见问题解答
+
+**Q: 如何快速定位日志中的错误？**
+A: 使用grep过滤ERROR/WARN级别，结合时间范围筛选，查找最近的异常堆栈。
+
+**Q: 配置文件缩进有问题怎么办？**
+A: 使用yamllint等工具验证，或使用IDE的格式化功能，统一使用2或4空格缩进。
+
+**Q: 如何追踪跨服务的错误？**
+A: 实现分布式追踪（如Jaeger、Zipkin），在日志中包含traceId，关联分析相关服务日志。`,
+          category: 'custom'
+        }
+      }
+    }
+
+    let result
+    if (inputType === 'topic') {
+      const inputLower = input.toLowerCase()
+      if (inputLower.includes('docker') || inputLower.includes('容器')) {
+        result = mockArticles.topic.docker
+      } else if (inputLower.includes('kubernetes') || inputLower.includes('k8s') || inputLower.includes('pod')) {
+        result = mockArticles.topic.kubernetes
+      } else if (inputLower.includes('cicd') || inputLower.includes('ci/cd') || inputLower.includes('流水线')) {
+        result = mockArticles.topic.cicd
+      } else {
+        result = {
+          title: input,
+          summary: `关于"${input}"的技术知识文章，包含详细的技术分析和最佳实践建议。`,
+          tags: ['技术', 'DevOps', '最佳实践'],
+          difficulty: '中级',
+          readTime: '10 分钟',
+          content: `## ${input}
+
+### 概述
+
+本文档详细介绍了${input}的核心概念、实现方法和最佳实践。
+
+### 核心概念
+
+#### 1. 基本原理
+理解${input}的工作原理是有效使用它的基础。
+
+#### 2. 关键组件
+- 组件A：负责核心功能
+- 组件B：处理辅助逻辑
+- 组件C：提供接口
+
+### 最佳实践
+
+1. **配置管理**
+   - 使用版本控制管理配置
+   - 环境变量注入敏感信息
+   - 配置分离原则
+
+2. **安全考虑**
+   - 最小权限原则
+   - 定期更新依赖
+   - 安全扫描集成
+
+3. **性能优化**
+   - 缓存策略
+   - 连接池管理
+   - 异步处理
+
+### 常见问题
+
+**Q: 如何解决常见问题？**
+A: 首先检查日志，然后验证配置，最后检查依赖服务状态。
+
+**Q: 最佳实践有哪些？**
+A: 遵循12要素应用原则，实施自动化测试，建立监控告警体系。`,
+          category: 'custom'
+        }
+      }
+    } else {
+      result = mockArticles.content.default
+    }
+
+    return {
+      success: true,
+      content: JSON.stringify(result, null, 2)
+    }
+  }
+
+  /**
    * 检查AI服务是否已配置（非mock模式下是否有API密钥）
    * @returns {boolean} 配置状态
    */

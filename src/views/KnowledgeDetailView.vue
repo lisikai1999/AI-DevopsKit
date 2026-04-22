@@ -118,7 +118,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getArticleById, getRelatedArticles, getCategoryById } from '@/utils/knowledge-base'
+import { getArticleByIdWithCustom, getRelatedArticles, getCategoryByIdWithCustom } from '@/utils/knowledge-base'
 import { Reading, ArrowLeft } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -128,6 +128,9 @@ const article = ref(null)
 
 const relatedArticles = computed(() => {
   if (!article.value) return []
+  if (article.value.categoryId === 'custom') {
+    return []
+  }
   return getRelatedArticles(article.value.categoryId, article.value.id, 3)
 })
 
@@ -188,7 +191,7 @@ const goToCategory = (categoryId) => {
 onMounted(() => {
   const articleId = route.params.id
   if (articleId) {
-    article.value = getArticleById(articleId)
+    article.value = getArticleByIdWithCustom(articleId)
   }
 })
 </script>

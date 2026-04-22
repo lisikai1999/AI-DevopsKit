@@ -1,9 +1,15 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <div class="page-title">
-        <el-icon class="title-icon"><Reading /></el-icon>
-        <h1>DevOps 知识库</h1>
+      <div class="header-row">
+        <div class="page-title">
+          <el-icon class="title-icon"><Reading /></el-icon>
+          <h1>DevOps 知识库</h1>
+        </div>
+        <el-button type="primary" size="large" @click="goToCreate">
+          <el-icon><Plus /></el-icon>
+          创建知识
+        </el-button>
       </div>
       <p class="page-subtitle">DevOps 最佳实践、运维指南和安全合规知识</p>
     </div>
@@ -96,24 +102,29 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { knowledgeCategories, getArticleById } from '@/utils/knowledge-base'
-import { Reading, Search, ArrowRight, View } from '@element-plus/icons-vue'
+import { getAllCategoriesWithCustom, getArticleByIdWithCustom, loadCustomKnowledge, customCategory } from '@/utils/knowledge-base'
+import { Reading, Search, ArrowRight, View, Plus } from '@element-plus/icons-vue'
 
 const router = useRouter()
 
 const searchQuery = ref('')
 const expandedCategories = ref([])
 const activeArticles = ref([])
+const categories = ref([])
+
+const loadCategories = () => {
+  categories.value = getAllCategoriesWithCustom()
+}
 
 const filteredCategories = computed(() => {
   if (!searchQuery.value.trim()) {
-    return knowledgeCategories
+    return categories.value
   }
   
   const query = searchQuery.value.toLowerCase()
-  return knowledgeCategories.filter(category => {
+  return categories.value.filter(category => {
     if (category.name.toLowerCase().includes(query)) {
       return true
     }
@@ -162,10 +173,25 @@ const getDifficultyTagType = (difficulty) => {
 const goToArticle = (articleId) => {
   router.push(`/knowledge/${articleId}`)
 }
+
+const goToCreate = () => {
+  router.push('/knowledge/create')
+}
+
+onMounted(() => {
+  loadCategories()
+})
 </script>
 
 <style scoped>
 @import '@/assets/page-styles.css';
+
+.header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
 
 .search-section {
   margin-bottom: 32px;

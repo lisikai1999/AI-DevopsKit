@@ -1530,3 +1530,113 @@ export const getRecommendationsForPage = (pageType) => {
   
   return recommendations[pageType] || []
 }
+
+const CUSTOM_KNOWLEDGE_STORAGE_KEY = 'ai-devops-custom-knowledge'
+
+export const customCategory = {
+  id: 'custom',
+  name: '我的知识',
+  icon: '📝',
+  color: '#7c3aed',
+  description: '用户自定义的知识库条目',
+  articles: []
+}
+
+export const saveCustomKnowledge = (articles) => {
+  try {
+    localStorage.setItem(CUSTOM_KNOWLEDGE_STORAGE_KEY, JSON.stringify(articles))
+    return true
+  } catch (error) {
+    console.error('[KnowledgeBase] 保存自定义知识失败:', error)
+    return false
+  }
+}
+
+export const loadCustomKnowledge = () => {
+  try {
+    const saved = localStorage.getItem(CUSTOM_KNOWLEDGE_STORAGE_KEY)
+    if (saved) {
+      return JSON.parse(saved)
+    }
+  } catch (error) {
+    console.error('[KnowledgeBase] 加载自定义知识失败:', error)
+  }
+  return []
+}
+
+export const addCustomArticle = (article) => {
+  const articles = loadCustomKnowledge()
+  const newArticle = {
+    ...article,
+    id: article.id || `custom-${Date.now()}`,
+    createdAt: article.createdAt || new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+  articles.unshift(newArticle)
+  saveCustomKnowledge(articles)
+  return newArticle
+}
+
+export const updateCustomArticle = (articleId, updates) => {
+  const articles = loadCustomKnowledge()
+  const index = articles.findIndex(art => art.id === articleId)
+  if (index !== -1) {
+    articles[index] = {
+      ...articles[index],
+      ...updates,
+      updatedAt: new Date().toISOString()
+    }
+    saveCustomKnowledge(articles)
+    return articles[index]
+  }
+  return null
+}
+
+export const deleteCustomArticle = (articleId) => {
+  const articles = loadCustomKnowledge()
+  const filtered = articles.filter(art => art.id !== articleId)
+  saveCustomKnowledge(filtered)
+  return filtered.length !== articles.length
+}
+
+export const getCustomArticleById = (articleId) => {
+  const articles = loadCustomKnowledge()
+  const article = articles.find(art => art.id === articleId)
+  if (article) {
+    return { ...article, categoryId: 'custom', categoryName: '我的知识' }
+  }
+  return null
+}
+
+export const getAllCategoriesWithCustom = () => {
+  const customArticles = loadCustomKnowledge()
+  const categories = [...knowledgeCategories]
+  
+  if (customArticles.length > 0) {
+    categories.push({
+      ...customCategory,
+      articles: customArticles
+    })
+  }
+  
+  return categories
+}
+
+export const getArticleByIdWithCustom = (articleId) => {
+  const staticArticle = getArticleById(articleId)
+  if (staticArticle) {
+    return staticArticle
+  }
+  return getCustomArticleById(articleId)
+}
+
+export const getCategoryByIdWithCustom = (categoryId) => {
+  if (categoryId === 'custom') {
+    const customArticles = loadCustomKnowledge()
+    return {
+      ...customCategory,
+      articles: customArticles
+    }
+  }
+  return getCategoryById(categoryId)
+}
