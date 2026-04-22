@@ -12,7 +12,17 @@ const router = createRouter({
     {
       path: '/jenkinsfile',
       name: 'jenkinsfile',
-      component: () => import('../views/JenkinsfileView.vue'),
+      redirect: '/cicd',
+    },
+    {
+      path: '/cicd',
+      name: 'cicd',
+      component: () => import('../views/CICDView.vue'),
+    },
+    {
+      path: '/cicd-scanner',
+      name: 'cicd-scanner',
+      component: () => import('../views/CICDScannerView.vue'),
     },
     {
       path: '/dockerfile',
@@ -35,9 +45,24 @@ const router = createRouter({
       component: () => import('../views/HistoryView.vue'),
     },
     {
-      path: '/test',
-      name: 'test',
-      component: () => import('../views/Test.vue'),
+      path: '/workflow',
+      name: 'workflow',
+      component: () => import('../views/WorkflowView.vue'),
+    },
+    {
+      path: '/knowledge',
+      name: 'knowledge',
+      component: () => import('../views/KnowledgeBaseView.vue'),
+    },
+    {
+      path: '/knowledge/create',
+      name: 'knowledge-create',
+      component: () => import('../views/KnowledgeCreateView.vue'),
+    },
+    {
+      path: '/knowledge/:id',
+      name: 'knowledge-detail',
+      component: () => import('../views/KnowledgeDetailView.vue'),
     },
   ],
 })
