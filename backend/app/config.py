@@ -14,7 +14,15 @@ class Settings(BaseSettings):
     
     DATABASE_URL: str = "sqlite:///./ai_devops.db"
     
-    CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
+    CORS_ORIGINS: list = [
+        "http://localhost:5173", 
+        "http://localhost:3000", 
+        "http://127.0.0.1:5173",
+        "http://192.168.220.129:5173",
+        "http://192.168.220.129:3000",
+    ]
+    
+    ALLOW_ALL_ORIGINS: bool = True
     
     @property
     def PROJECT_NAME(self) -> str:
