@@ -18,27 +18,50 @@
             <el-icon><House /></el-icon>
             <span>首页</span>
           </el-menu-item>
-          <el-menu-item index="/jenkinsfile">
-            <el-icon><Tools /></el-icon>
-            <span>Jenkinsfile 生成器</span>
-          </el-menu-item>
+          <el-sub-menu index="cicd-menu">
+            <template #title>
+              <el-icon><Tools /></el-icon>
+              <span>CI/CD 工具</span>
+            </template>
+            <el-menu-item index="/cicd">
+              <el-icon><Edit /></el-icon>
+              <span>CI/CD 生成器</span>
+            </el-menu-item>
+            <el-menu-item index="/cicd-scanner">
+              <el-icon><Search /></el-icon>
+              <span>CI/CD 配置诊断</span>
+            </el-menu-item>
+          </el-sub-menu>
           <el-menu-item index="/dockerfile">
             <el-icon><Document /></el-icon>
             <span>Dockerfile 分析器</span>
           </el-menu-item>
-          <el-menu-item index="/billing">
-            <el-icon><TrendCharts /></el-icon>
-            <span>账单分析</span>
+          <el-menu-item index="/knowledge">
+            <el-icon><Reading /></el-icon>
+            <span>知识库</span>
           </el-menu-item>
-          <el-menu-item index="/logs">
-            <el-icon><Failed /></el-icon>
-            <span>日志翻译</span>
-          </el-menu-item>
-          <el-menu-item index="/history">
-            <el-icon><Clock /></el-icon>
-            <span>历史记录</span>
-          </el-menu-item>
-          
+          <el-sub-menu index="tools-menu">
+            <template #title>
+              <el-icon><Tools /></el-icon>
+              <span>更多工具</span>
+            </template>
+            <el-menu-item index="/billing">
+              <el-icon><TrendCharts /></el-icon>
+              <span>账单分析</span>
+            </el-menu-item>
+            <el-menu-item index="/logs">
+              <el-icon><Failed /></el-icon>
+              <span>日志翻译</span>
+            </el-menu-item>
+            <el-menu-item index="/workflow">
+              <el-icon><Share /></el-icon>
+              <span>工作流编排</span>
+            </el-menu-item>
+            <el-menu-item index="/history">
+              <el-icon><Clock /></el-icon>
+              <span>历史记录</span>
+            </el-menu-item>
+          </el-sub-menu>
 
         </el-menu>
         
@@ -46,6 +69,49 @@
           <el-tag :type="aiMode === 'mock' ? 'info' : 'success'" size="small">
             {{ aiMode === 'mock' ? 'Mock 模式' : 'AI 模式' }}
           </el-tag>
+          
+          <template v-if="authStore.isAuthenticated">
+            <el-dropdown @command="handleCommand">
+              <div class="user-info-dropdown">
+                <el-avatar :size="32" :style="{ backgroundColor: userAvatarColor }">
+                  {{ authStore.user?.username?.charAt(0).toUpperCase() }}
+                </el-avatar>
+                <span class="user-name">{{ authStore.user?.username }}</span>
+                <el-tag :type="getRoleTagType(authStore.user?.role)" size="small">
+                  {{ getRoleLabel(authStore.user?.role) }}
+                </el-tag>
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item divided>
+                    <div class="dropdown-user-info">
+                      <span class="dropdown-username">{{ authStore.user?.username }}</span>
+                      <span class="dropdown-email">{{ authStore.user?.email }}</span>
+                    </div>
+                  </el-dropdown-item>
+                  <el-dropdown-item command="users" v-if="authStore.isAdmin">
+                    <el-icon><User /></el-icon>
+                    用户管理
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>
+                    <el-icon><SwitchButton /></el-icon>
+                    退出登录
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+          
+          <template v-else>
+            <el-button type="primary" size="small" @click="goToLogin">
+              <el-icon><User /></el-icon>
+              登录
+            </el-button>
+            <el-button size="small" @click="goToRegister">
+              注册
+            </el-button>
+          </template>
+          
           <el-button
             type="text"
             @click="toggleDarkMode"
@@ -79,17 +145,87 @@
 
 <script setup>
   import { computed, watch, onMounted } from 'vue'
-  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts } from '@element-plus/icons-vue'
+  import { useRouter } from 'vue-router'
+  import { ElMessageBox } from 'element-plus'
+  import { Cpu, House, Tools, Document, Clock, Moon, Sunny, Failed, TrendCharts, Edit, Search, Share, Reading, User, SwitchButton } from '@element-plus/icons-vue'
   import { useAppStore } from '@/stores/app'
+  import { useAuthStore } from '@/stores/auth'
   import { aiService } from '@/services/ai-service'
 
+  const router = useRouter()
   const appStore = useAppStore()
+  const authStore = useAuthStore()
 
   const aiMode = computed(() => aiService.getMode())
   const isDarkMode = computed(() => appStore.isDarkMode)
 
+  const avatarColors = [
+    '#409eff', '#67c23a', '#e6a23c', '#f56c6c', '#909399',
+    '#9a57ff', '#00d4ff', '#009688', '#ff5722', '#795548'
+  ]
+
+  const userAvatarColor = computed(() => {
+    const username = authStore.user?.username || ''
+    let hash = 0
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    return avatarColors[Math.abs(hash) % avatarColors.length]
+  })
+
+  const getRoleLabel = (role) => {
+    const labels = {
+      'admin': '管理员',
+      'user': '用户',
+      'readonly': '只读'
+    }
+    return labels[role?.toLowerCase()] || role
+  }
+
+  const getRoleTagType = (role) => {
+    const types = {
+      'admin': 'danger',
+      'user': 'primary',
+      'readonly': 'info'
+    }
+    return types[role?.toLowerCase()] || 'info'
+  }
+
   const toggleDarkMode = () => {
     appStore.toggleDarkMode()
+  }
+
+  const goToLogin = () => {
+    router.push('/login')
+  }
+
+  const goToRegister = () => {
+    router.push('/register')
+  }
+
+  const handleCommand = async (command) => {
+    switch (command) {
+      case 'users':
+        router.push('/users')
+        break
+      case 'logout':
+        try {
+          await ElMessageBox.confirm(
+            '确定要退出登录吗？',
+            '确认退出',
+            {
+              confirmButtonText: '确定',
+              cancelButtonText: '取消',
+              type: 'warning'
+            }
+          )
+          await authStore.logout()
+          router.push('/')
+        } catch {
+          // 用户取消
+        }
+        break
+    }
   }
 
   const applyDarkMode = (isDark) => {
@@ -105,7 +241,9 @@
     localStorage.setItem('ai-devops-dark-mode', newValue)
   })
 
-  onMounted(() => {
+  onMounted(async () => {
+    await authStore.initialize()
+    
     const savedDarkMode = localStorage.getItem('ai-devops-dark-mode')
     if (savedDarkMode !== null) {
       const isDark = savedDarkMode === 'true'
@@ -119,6 +257,8 @@
       }
     }
     applyDarkMode(appStore.isDarkMode)
+    
+    appStore.loadHistory()
   })
 </script>
 
@@ -154,6 +294,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-shrink: 0;
   }
 
   .app-title {
@@ -173,6 +314,44 @@
     display: flex;
     align-items: center;
     gap: 12px;
+  }
+
+  .user-info-dropdown {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+  }
+
+  .user-info-dropdown:hover {
+    background-color: #f5f7fa;
+  }
+
+  .user-name {
+    font-size: 14px;
+    color: #303133;
+    font-weight: 500;
+  }
+
+  .dropdown-user-info {
+    padding: 8px 0;
+  }
+
+  .dropdown-username {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #303133;
+  }
+
+  .dropdown-email {
+    display: block;
+    font-size: 12px;
+    color: #909399;
+    margin-top: 4px;
   }
 
   .app-main {
@@ -254,6 +433,7 @@
     
     .header-actions {
       justify-content: center;
+      flex-wrap: wrap;
     }
     
     .footer-content {
@@ -301,6 +481,18 @@
     }
 
     & .app-title {
+      color: var(--el-text-color-primary);
+    }
+
+    & .user-name {
+      color: var(--el-text-color-primary);
+    }
+
+    & .user-info-dropdown:hover {
+      background-color: var(--el-fill-color-light);
+    }
+
+    & .dropdown-username {
       color: var(--el-text-color-primary);
     }
 
