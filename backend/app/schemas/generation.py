@@ -10,7 +10,7 @@ class GenerationBase(BaseModel):
     content: str
     result: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = {}
-    metadata: Optional[Dict[str, Any]] = {}
+    meta: Optional[Dict[str, Any]] = {}
     project_id: Optional[int] = None
 
 
@@ -23,7 +23,7 @@ class GenerationUpdate(BaseModel):
     content: Optional[str] = None
     result: Optional[str] = None
     parameters: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    meta: Optional[Dict[str, Any]] = None
 
 
 class GenerationResponse(GenerationBase):

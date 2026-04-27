@@ -75,7 +75,7 @@ export const useAppStore = defineStore('app', () => {
           content: item.content || '',
           result: typeof item.result === 'object' ? JSON.stringify(item.result) : (item.result || null),
           parameters: {},
-          metadata: {}
+          meta: {}
         }
         
         const saved = await generationsApi.create(newItem)

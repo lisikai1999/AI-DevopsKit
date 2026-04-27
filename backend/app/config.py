@@ -16,6 +16,14 @@ class Settings(BaseSettings):
     
     CORS_ORIGINS: list = ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"]
     
+    @property
+    def PROJECT_NAME(self) -> str:
+        return self.APP_NAME
+    
+    @property
+    def ALLOWED_ORIGINS(self) -> list:
+        return self.CORS_ORIGINS
+    
     OPENAI_API_KEY: Optional[str] = None
     OPENAI_API_BASE_URL: Optional[str] = None
     OPENAI_MODEL: str = "gpt-3.5-turbo"

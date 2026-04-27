@@ -23,7 +23,7 @@ def create_generation(
         content=generation_in.content,
         result=generation_in.result,
         parameters=generation_in.parameters or {},
-        metadata=generation_in.metadata or {},
+        meta=generation_in.meta or {},
         owner_id=current_user.id,
         project_id=generation_in.project_id,
     )

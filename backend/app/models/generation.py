@@ -24,7 +24,7 @@ class GenerationRecord(Base):
     result = Column(Text, nullable=True)
     
     parameters = Column(JSON, default=dict, nullable=True)
-    metadata = Column(JSON, default=dict, nullable=True)
+    meta = Column(JSON, default=dict, nullable=True)
     
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
