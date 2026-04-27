@@ -118,21 +118,81 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { getArticleByIdWithCustom, getRelatedArticles, getCategoryByIdWithCustom } from '@/utils/knowledge-base'
+import { getArticleByIdWithCustom, getRelatedArticles } from '@/utils/knowledge-base'
+import { knowledgeApi } from '@/services/api'
 import { Reading, ArrowLeft } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
 
 const article = ref(null)
+const isLoading = ref(false)
+const useBackend = ref(false)
 
 const relatedArticles = computed(() => {
   if (!article.value) return []
+  
+  if (useBackend.value) {
+    return []
+  }
+  
   if (article.value.categoryId === 'custom') {
     return []
   }
   return getRelatedArticles(article.value.categoryId, article.value.id, 3)
 })
+
+const getCategoryName = (cat) => {
+  if (cat && typeof cat === 'object' && cat.name) {
+    return cat.name
+  }
+  return '未分类'
+}
+
+const loadArticle = async () => {
+  const articleId = route.params.id
+  if (!articleId) return
+
+  isLoading.value = true
+  
+  try {
+    let articleData = null
+    
+    const isNumericId = !isNaN(Number(articleId)) && articleId !== ''
+    
+    if (isNumericId) {
+      try {
+        articleData = await knowledgeApi.getArticle(Number(articleId))
+        useBackend.value = true
+        
+        article.value = {
+          ...articleData,
+          categoryId: articleData.category_id,
+          categoryName: '知识库文章',
+          readTime: articleData.read_time || '5 分钟'
+        }
+        isLoading.value = false
+        return
+      } catch (backendError) {
+        console.error('[KnowledgeDetail] 从后端获取文章失败，尝试本地数据:', backendError)
+      }
+    }
+    
+    articleData = getArticleByIdWithCustom(articleId)
+    useBackend.value = false
+    
+    if (articleData) {
+      article.value = articleData
+    } else {
+      article.value = null
+    }
+  } catch (error) {
+    console.error('[KnowledgeDetail] 加载文章失败:', error)
+    article.value = null
+  } finally {
+    isLoading.value = false
+  }
+}
 
 const renderMarkdown = (content) => {
   if (!content) return ''
@@ -189,10 +249,7 @@ const goToCategory = (categoryId) => {
 }
 
 onMounted(() => {
-  const articleId = route.params.id
-  if (articleId) {
-    article.value = getArticleByIdWithCustom(articleId)
-  }
+  loadArticle()
 })
 </script>
 

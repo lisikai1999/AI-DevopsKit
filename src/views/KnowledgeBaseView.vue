@@ -6,10 +6,16 @@
           <el-icon class="title-icon"><Reading /></el-icon>
           <h1>DevOps 知识库</h1>
         </div>
-        <el-button type="primary" size="large" @click="goToCreate">
-          <el-icon><Plus /></el-icon>
-          创建知识
-        </el-button>
+        <div class="header-actions">
+          <el-button type="primary" size="large" @click="refreshData" :loading="isLoading">
+            <el-icon><Refresh /></el-icon>
+            刷新
+          </el-button>
+          <el-button type="primary" size="large" @click="goToCreate" v-if="authStore.can('write')">
+            <el-icon><Plus /></el-icon>
+            创建知识
+          </el-button>
+        </div>
       </div>
       <p class="page-subtitle">DevOps 最佳实践、运维指南和安全合规知识</p>
     </div>
@@ -28,7 +34,11 @@
         </el-input>
       </div>
 
-      <div v-if="filteredCategories.length === 0" class="empty-section">
+      <div v-if="isLoading" class="loading-section">
+        <el-skeleton :rows="8" animated />
+      </div>
+
+      <div v-else-if="filteredCategories.length === 0" class="empty-section">
         <el-empty description="没有找到匹配的文章">
           <el-button type="primary" @click="searchQuery = ''">清除搜索</el-button>
         </el-empty>
@@ -43,15 +53,15 @@
           <el-card class="content-card category-header-card" :body-style="{ padding: '0' }">
             <div
               class="category-header"
-              :style="{ borderLeftColor: category.color }"
+              :style="{ borderLeftColor: category.color || '#409eff' }"
               @click="toggleCategory(category.id)"
             >
-              <div class="category-icon" :style="{ backgroundColor: category.color + '20' }">
-                <span class="icon-text">{{ category.icon }}</span>
+              <div class="category-icon" :style="{ backgroundColor: (category.color || '#409eff') + '20' }">
+                <span class="icon-text">{{ category.icon || '📚' }}</span>
               </div>
               <div class="category-info">
                 <h3 class="category-name">{{ category.name }}</h3>
-                <p class="category-description">{{ category.description }}</p>
+                <p class="category-description">{{ category.description || '' }}</p>
                 <p class="category-count">{{ filteredArticles(category).length }} 篇文章</p>
               </div>
               <el-icon class="expand-icon" :class="{ rotated: expandedCategories.includes(category.id) }">
@@ -75,9 +85,9 @@
                   <span class="article-title">{{ article.title }}</span>
                   <div class="article-meta">
                     <el-tag :type="getDifficultyTagType(article.difficulty)" size="small">
-                      {{ article.difficulty }}
+                      {{ article.difficulty || '中级' }}
                     </el-tag>
-                    <span class="read-time">{{ article.readTime }}</span>
+                    <span class="read-time">{{ article.read_time || article.readTime || '5 分钟' }}</span>
                   </div>
                 </div>
               </template>
@@ -104,51 +114,106 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getAllCategoriesWithCustom, getArticleByIdWithCustom, loadCustomKnowledge, customCategory } from '@/utils/knowledge-base'
-import { Reading, Search, ArrowRight, View, Plus } from '@element-plus/icons-vue'
+import { knowledgeApi, ApiError } from '@/services/api'
+import { useAuthStore } from '@/stores/auth'
+import { Reading, Search, ArrowRight, View, Plus, Refresh } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const searchQuery = ref('')
 const expandedCategories = ref([])
 const activeArticles = ref([])
 const categories = ref([])
+const articles = ref([])
+const isLoading = ref(false)
+const useBackend = ref(false)
 
-const loadCategories = () => {
-  categories.value = getAllCategoriesWithCustom()
-}
+const staticCategories = [
+  {
+    id: 'cicd-best-practices',
+    name: 'CI/CD 最佳实践',
+    icon: '🔄',
+    color: '#409eff',
+    description: '持续集成与持续部署的最佳实践指南',
+    is_static: true
+  },
+  {
+    id: 'docker-optimization',
+    name: 'Docker 优化指南',
+    icon: '🐳',
+    color: '#67c23a',
+    description: 'Docker 镜像构建、性能优化和安全最佳实践',
+    is_static: true
+  },
+  {
+    id: 'kubernetes-ops',
+    name: 'Kubernetes 运维手册',
+    icon: '☸️',
+    color: '#e6a23c',
+    description: 'Kubernetes 集群管理、应用部署和故障排查',
+    is_static: true
+  },
+  {
+    id: 'cloud-architecture',
+    name: '云服务架构模式',
+    icon: '☁️',
+    color: '#909399',
+    description: '云原生应用架构设计模式和最佳实践',
+    is_static: true
+  },
+  {
+    id: 'security-compliance',
+    name: '安全合规要求',
+    icon: '🔒',
+    color: '#f56c6c',
+    description: 'DevOps 安全最佳实践和合规性要求',
+    is_static: true
+  }
+]
+
+const categoriesWithArticles = computed(() => {
+  if (useBackend.value) {
+    return categories.value.map(cat => ({
+      ...cat,
+      articles: articles.value.filter(art => art.category_id === cat.id)
+    }))
+  } else {
+    return staticCategories
+  }
+})
 
 const filteredCategories = computed(() => {
   if (!searchQuery.value.trim()) {
-    return categories.value
+    return categoriesWithArticles.value
   }
   
   const query = searchQuery.value.toLowerCase()
-  return categories.value.filter(category => {
+  return categoriesWithArticles.value.filter(category => {
     if (category.name.toLowerCase().includes(query)) {
       return true
     }
-    if (category.description.toLowerCase().includes(query)) {
+    if (category.description?.toLowerCase().includes(query)) {
       return true
     }
-    return category.articles.some(article => 
+    return category.articles?.some(article => 
       article.title.toLowerCase().includes(query) ||
-      article.summary.toLowerCase().includes(query) ||
-      article.tags.some(tag => tag.toLowerCase().includes(query))
+      article.summary?.toLowerCase().includes(query) ||
+      article.tags?.some(tag => tag.toLowerCase().includes(query))
     )
   })
 })
 
 const filteredArticles = (category) => {
   if (!searchQuery.value.trim()) {
-    return category.articles
+    return category.articles || []
   }
   
   const query = searchQuery.value.toLowerCase()
-  return category.articles.filter(article =>
+  return (category.articles || []).filter(article =>
     article.title.toLowerCase().includes(query) ||
-    article.summary.toLowerCase().includes(query) ||
-    article.tags.some(tag => tag.toLowerCase().includes(query))
+    article.summary?.toLowerCase().includes(query) ||
+    article.tags?.some(tag => tag.toLowerCase().includes(query))
   )
 }
 
@@ -178,6 +243,31 @@ const goToCreate = () => {
   router.push('/knowledge/create')
 }
 
+const loadCategories = async () => {
+  isLoading.value = true
+  try {
+    const [backendCategories, backendArticles] = await Promise.all([
+      knowledgeApi.getCategories(),
+      knowledgeApi.getArticles()
+    ])
+    categories.value = backendCategories
+    articles.value = backendArticles
+    useBackend.value = true
+    
+    expandedCategories.value = backendCategories.slice(0, 1).map(c => c.id)
+  } catch (error) {
+    console.error('Failed to load from backend, using static data:', error)
+    useBackend.value = false
+    expandedCategories.value = staticCategories.slice(0, 1).map(c => c.id)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+const refreshData = () => {
+  loadCategories()
+}
+
 onMounted(() => {
   loadCategories()
 })
@@ -193,9 +283,18 @@ onMounted(() => {
   width: 100%;
 }
 
+.header-actions {
+  display: flex;
+  gap: 12px;
+}
+
 .search-section {
   margin-bottom: 32px;
   max-width: 600px;
+}
+
+.loading-section {
+  padding: 20px;
 }
 
 .empty-section {
@@ -351,6 +450,20 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .header-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .header-actions .el-button {
+    flex: 1;
+  }
+
   .category-header {
     padding: 16px;
     gap: 12px;

@@ -211,15 +211,15 @@
 </template>
 
 <script setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { 
   knowledgeCategories, 
-  addCustomArticle, 
-  loadCustomKnowledge 
+  addCustomArticle
 } from '@/utils/knowledge-base'
 import { aiService } from '@/services/ai-service'
+import { knowledgeApi, ApiError } from '@/services/api'
 import { 
   Plus, 
   ArrowLeft, 
@@ -236,16 +236,24 @@ const inputType = ref('topic')
 const generating = ref(false)
 const publishing = ref(false)
 const hasDraft = ref(false)
+const isLoadingCategories = ref(false)
+const useBackend = ref(false)
+const backendCategories = ref([])
 
 const customCategory = {
   id: 'custom',
   name: '我的知识'
 }
 
-const categories = computed(() => [
-  ...knowledgeCategories,
-  customCategory
-])
+const categories = computed(() => {
+  if (useBackend.value && backendCategories.value.length > 0) {
+    return backendCategories.value
+  }
+  return [
+    ...knowledgeCategories,
+    customCategory
+  ]
+})
 
 const suggestedTags = [
   'Docker', 'Kubernetes', 'CI/CD', 'DevOps', '安全', '性能优化',
@@ -348,7 +356,14 @@ const generateDraft = async () => {
   }
 }
 
-const publishArticle = () => {
+const getCategoryId = (categoryValue) => {
+  if (useBackend.value) {
+    return Number(categoryValue)
+  }
+  return categoryValue
+}
+
+const publishArticle = async () => {
   if (!draftForm.title.trim()) {
     ElMessage.warning('请输入标题')
     return
@@ -361,25 +376,42 @@ const publishArticle = () => {
   publishing.value = true
   
   try {
-    const article = {
-      id: `custom-${Date.now()}`,
-      title: draftForm.title,
-      summary: draftForm.summary,
-      category: draftForm.category,
-      difficulty: draftForm.difficulty,
-      readTime: draftForm.readTime,
-      tags: draftForm.tags,
-      content: draftForm.content,
-      isCustom: true
-    }
-
-    addCustomArticle(article)
+    const categoryId = getCategoryId(draftForm.category)
     
-    ElMessage.success('知识发布成功！')
-    router.push('/knowledge')
+    if (useBackend.value) {
+      const articleData = {
+        title: draftForm.title,
+        summary: draftForm.summary || '',
+        content: draftForm.content,
+        tags: draftForm.tags || [],
+        difficulty: draftForm.difficulty,
+        read_time: draftForm.readTime,
+        category_id: categoryId
+      }
+      
+      await knowledgeApi.createArticle(articleData)
+      ElMessage.success('知识发布成功！')
+      router.push('/knowledge')
+    } else {
+      const article = {
+        id: `custom-${Date.now()}`,
+        title: draftForm.title,
+        summary: draftForm.summary,
+        category: draftForm.category,
+        difficulty: draftForm.difficulty,
+        readTime: draftForm.readTime,
+        tags: draftForm.tags,
+        content: draftForm.content,
+        isCustom: true
+      }
+
+      addCustomArticle(article)
+      ElMessage.success('知识发布成功！')
+      router.push('/knowledge')
+    }
   } catch (error) {
     console.error('[KnowledgeCreate] 发布失败:', error)
-    ElMessage.error('发布失败，请重试')
+    ElMessage.error(error.message || '发布失败，请重试')
   } finally {
     publishing.value = false
   }
@@ -388,6 +420,31 @@ const publishArticle = () => {
 const saveDraft = () => {
   ElMessage.info('草稿已自动保存到本地')
 }
+
+const loadCategories = async () => {
+  isLoadingCategories.value = true
+  try {
+    const cats = await knowledgeApi.getCategories()
+    backendCategories.value = cats
+    useBackend.value = true
+    
+    if (cats.length > 0) {
+      const firstCategory = cats[0]
+      topicForm.category = firstCategory.id
+      contentForm.category = firstCategory.id
+      draftForm.category = firstCategory.id
+    }
+  } catch (error) {
+    console.error('[KnowledgeCreate] 从后端加载分类失败，使用本地数据:', error)
+    useBackend.value = false
+  } finally {
+    isLoadingCategories.value = false
+  }
+}
+
+onMounted(() => {
+  loadCategories()
+})
 
 const renderMarkdown = (content) => {
   if (!content) return ''
